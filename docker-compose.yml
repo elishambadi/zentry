@@ -9,7 +9,6 @@ services:
     depends_on:
       - db
     environment:
-      - DEBUG=False
       - DB_HOST=db
     volumes:
       - ./staticfiles:/app/staticfiles

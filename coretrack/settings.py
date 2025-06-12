@@ -30,7 +30,6 @@ DEBUG = True
 ALLOWED_HOSTS = ['zentry.elimbadi.com', 'localhost']
 
 SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG', cast=bool)
 
 # Application definition
 
