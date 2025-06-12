@@ -1,0 +1,63 @@
+
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}Weekly Review - Zentry{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="mb-8">
+        <h1 class="text-2xl font-semibold text-gray-900">Weekly Review</h1>
+        <p class="text-gray-600">{{ start_of_week|date:"M j" }} - {{ end_of_week|date:"M j, Y" }}</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Overall Stats -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Overall Progress</h3>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-primary-600 mb-2">{{ completion_rate|floatformat:0 }}%</div>
+                <p class="text-sm text-gray-600">{{ completed_tasks }}/{{ total_tasks }} tasks completed</p>
+            </div>
+        </div>
+        
+        <!-- Task Distribution -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 lg:col-span-2">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Task Categories</h3>
+            <div class="space-y-3">
+                {% for category, stats in tag_stats.items %}
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium text-gray-700">{{ category }}</span>
+                    <div class="flex items-center space-x-2">
+                        <div class="text-sm text-gray-600">{{ stats.completed }}/{{ stats.total }}</div>
+                        <div class="w-20 bg-gray-200 rounded-full h-2">
+                            <div class="bg-primary-500 h-2 rounded-full" style="width: {{ stats.rate }}%"></div>
+                        </div>
+                        <div class="text-sm text-gray-600 w-10">{{ stats.rate|floatformat:0 }}%</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Journal Entries -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Journal Highlights</h3>
+        {% if journals %}
+        <div class="space-y-4">
+            {% for journal in journals %}
+            <div class="border-l-4 border-primary-500 pl-4">
+                <div class="text-sm text-gray-600 mb-1">{{ journal.date|date:"l, M j" }}</div>
+                <div class="text-gray-800">
+                    {{ journal.content|truncatewords:20|linebreaks }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center py-8">No journal entries this week.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

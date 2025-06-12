@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Zentry - Minimal. Mindful. Measured.{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary': {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Alpine.js for interactivity -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Custom styles -->
+    <style>
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.2s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-10px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="h-full bg-gray-50 font-sans">
+    {% if user.is_authenticated %}
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-xl font-semibold text-gray-900">Zentry</h1>
+                    <div class="hidden md:flex space-x-6">
+                        <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors">Dashboard</a>
+                        <a href="{% url 'calendar' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors">Calendar</a>
+                        <a href="{% url 'weekly_review' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors">Weekly</a>
+                        <a href="{% url 'monthly_review' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors">Monthly</a>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-600">Hello, {{ user.first_name|default:user.username }}</span>
+                    <a href="{% url 'account_logout' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Logout</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile menu -->
+        <div class="md:hidden" x-data="{ open: false }">
+            <button @click="open = !open" class="block px-4 py-2 text-sm text-gray-600">
+                Menu
+            </button>
+            <div x-show="open" class="px-4 pb-4 space-y-2">
+                <a href="{% url 'dashboard' %}" class="block text-gray-600 hover:text-gray-900 py-2">Dashboard</a>
+                <a href="{% url 'calendar' %}" class="block text-gray-600 hover:text-gray-900 py-2">Calendar</a>
+                <a href="{% url 'weekly_review' %}" class="block text-gray-600 hover:text-gray-900 py-2">Weekly</a>
+                <a href="{% url 'monthly_review' %}" class="block text-gray-600 hover:text-gray-900 py-2">Monthly</a>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+    
+    <!-- Messages -->
+    {% if messages %}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        {% for message in messages %}
+        <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-md mb-4 fade-in">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- Main content -->
+    <main class="{% if user.is_authenticated %}max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% else %}h-full{% endif %}">
+        {% block content %}
+        {% endblock %}
+    </main>
+    
+    {% if user.is_authenticated %}
+    <!-- AI Chatbot Placeholder -->
+    <div class="fixed bottom-6 right-6 z-50" x-data="{ open: false }">
+        <button @click="open = !open" class="bg-primary-500 hover:bg-primary-600 text-white rounded-full p-4 shadow-lg transition-all duration-200 hover:scale-105">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.418 8-12 8a9.934 9.934 0 01-4.599-1.105L3 21l1.105-2.401A9.934 9.934 0 013 14c0-4.418 4.418-8 9-8s9 3.582 9 6z"></path>
+            </svg>
+        </button>
+        
+        <div x-show="open" x-transition class="absolute bottom-16 right-0 w-80 bg-white rounded-lg shadow-xl border border-gray-200">
+            <div class="p-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">AI Assistant</h3>
+                <p class="text-sm text-gray-500">Coming soon! This will help you reflect and plan.</p>
+            </div>
+            <div class="p-4">
+                <div class="flex items-center space-x-2">
+                    <input type="text" placeholder="Ask me anything..." class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" disabled>
+                    <button class="bg-gray-300 text-gray-500 px-4 py-2 rounded-md text-sm cursor-not-allowed">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- JavaScript for HTMX-like functionality -->
+    <script>
+        // Toggle task completion
+        function toggleTask(taskId) {
+            fetch(`/task/toggle/${taskId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const checkbox = document.querySelector(`#task-${taskId}`);
+                const taskRow = checkbox.closest('.task-item');
+                if (data.completed) {
+                    taskRow.classList.add('opacity-75', 'line-through');
+                } else {
+                    taskRow.classList.remove('opacity-75', 'line-through');
+                }
+            });
+        }
+        
+        // Delete task
+        function deleteTask(taskId) {
+            if (confirm('Are you sure you want to delete this task?')) {
+                fetch(`/task/delete/${taskId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const taskRow = document.querySelector(`#task-${taskId}`).closest('.task-item');
+                        taskRow.style.animation = 'fadeOut 0.3s ease-out';
+                        setTimeout(() => taskRow.remove(), 300);
+                    }
+                });
+            }
+        }
+    </script>
+    
+    <style>
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(-20px); }
+        }
+    </style>
+</body>
+</html>

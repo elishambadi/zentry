@@ -1,0 +1,26 @@
+
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+    <div class="max-w-md w-full space-y-8 p-8">
+        <div class="text-center">
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">Zentry</h1>
+            <p class="text-lg text-gray-600 mb-8">Minimal. Mindful. Measured.</p>
+            
+            <div class="space-y-4">
+                <a href="{% url 'account_login' %}" class="w-full bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 block text-center">
+                    Sign In
+                </a>
+                <a href="{% url 'account_signup' %}" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-4 rounded-lg transition-colors duration-200 block text-center">
+                    Create Account
+                </a>
+            </div>
+        </div>
+        
+        <div class="mt-12 text-center text-sm text-gray-500">
+            <p>Track your daily tasks, journal your thoughts, and review your progress.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

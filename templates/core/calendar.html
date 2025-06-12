@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}Calendar - Zentry{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="flex items-center justify-between mb-8">
+        <a href="?year={{ prev_year }}&month={{ prev_month }}" class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+            Previous
+        </a>
+        
+        <h1 class="text-2xl font-semibold text-gray-900">{{ month_name }} {{ year }}</h1>
+        
+        <a href="?year={{ next_year }}&month={{ next_month }}" class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+            Next
+            <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+        </a>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <!-- Calendar Header -->
+        <div class="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+            {% for day in "Mon,Tue,Wed,Thu,Fri,Sat,Sun"|split:"," %}
+            <div class="p-4 text-center text-sm font-medium text-gray-700">{{ day }}</div>
+            {% endfor %}
+        </div>
+        
+        <!-- Calendar Body -->
+        {% for week in calendar %}
+        <div class="grid grid-cols-7 border-b border-gray-200 last:border-b-0">
+            {% for day in week %}
+            <div class="min-h-24 p-2 border-r border-gray-200 last:border-r-0 hover:bg-gray-50 transition-colors">
+                {% if day %}
+                    {% with date=year|add:"-"|add:month|add:"-"|add:day|date:"Y-m-d" %}
+                    <a href="{% url 'daily_view' year month day %}" class="block h-full">
+                        <div class="text-sm {% if day == today.day and month == today.month and year == today.year %}font-bold text-primary-600{% else %}text-gray-900{% endif %}">
+                            {{ day }}
+                        </div>
+                        
+                        {% with task_info=task_data|lookup:date %}
+                        {% if task_info %}
+                        <div class="mt-1">
+                            <div class="text-xs text-gray-600">
+                                {{ task_info.completed }}/{{ task_info.total }} tasks
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-1 mt-1">
+                                <div class="bg-primary-500 h-1 rounded-full" style="width: {% if task_info.total > 0 %}{{ task_info.completed|mul:100|div:task_info.total }}{% else %}0{% endif %}%"></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endwith %}
+                        
+                        {% if date|date:"Y-m-d" in journal_dates %}
+                        <div class="mt-1">
+                            <span class="inline-block w-2 h-2 bg-green-400 rounded-full"></span>
+                        </div>
+                        {% endif %}
+                    </a>
+                    {% endwith %}
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="mt-4 flex items-center space-x-6 text-sm text-gray-600">
+        <div class="flex items-center space-x-2">
+            <div class="w-3 h-1 bg-primary-500 rounded-full"></div>
+            <span>Task completion</span>
+        </div>
+        <div class="flex items-center space-x-2">
+            <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+            <span>Journal entry</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

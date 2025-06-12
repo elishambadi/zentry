@@ -1,0 +1,90 @@
+
+{% extends 'base.html' %}
+
+{% block title %}{{ selected_date|date:"F j, Y" }} - Zentry{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Date Navigation -->
+    <div class="flex items-center justify-between mb-8">
+        <a href="{% url 'daily_view' prev_date.year prev_date.month prev_date.day %}" class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+            Previous
+        </a>
+        
+        <div class="text-center">
+            <h1 class="text-2xl font-semibold text-gray-900">{{ selected_date|date:"F j, Y" }}</h1>
+            <p class="text-sm text-gray-500">{{ selected_date|date:"l" }}</p>
+        </div>
+        
+        <a href="{% url 'daily_view' next_date.year next_date.month next_date.day %}" class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+            Next
+            <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Tasks Section -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 class="text-lg font-medium text-gray-900 mb-4">Today's Tasks</h2>
+            
+            <!-- Add Task Form -->
+            <form method="post" class="mb-6">
+                {% csrf_token %}
+                <div class="flex space-x-2">
+                    {{ task_form.title }}
+                    {{ task_form.tag }}
+                    <button type="submit" name="task_title" class="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-md transition-colors">
+                        Add
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Tasks List -->
+            <div class="space-y-2">
+                {% for task in tasks %}
+                <div class="task-item flex items-center justify-between p-3 bg-gray-50 rounded-md {% if task.completed %}opacity-75{% endif %}">
+                    <div class="flex items-center space-x-3">
+                        <input type="checkbox" id="task-{{ task.id }}" {% if task.completed %}checked{% endif %}
+                               onchange="toggleTask({{ task.id }})"
+                               class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+                        <span class="{% if task.completed %}line-through text-gray-500{% else %}text-gray-900{% endif %}">
+                            {{ task.title }}
+                        </span>
+                        <span class="px-2 py-1 text-xs font-medium rounded-full {{ task.get_tag_color }}">
+                            {{ task.get_tag_display }}
+                        </span>
+                    </div>
+                    <button onclick="deleteTask({{ task.id %})" class="text-gray-400 hover:text-red-500 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                {% empty %}
+                <p class="text-gray-500 text-center py-8">No tasks yet. Add one above!</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Journal Section -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 class="text-lg font-medium text-gray-900 mb-4">Journal</h2>
+            
+            <form method="post">
+                {% csrf_token %}
+                {{ journal_form.content }}
+                <div class="mt-4 flex justify-end">
+                    <button type="submit" name="journal_content" class="bg-primary-500 hover:bg-primary-600 text-white px-6 py-2 rounded-md transition-colors">
+                        Save Journal
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign Out - Zentry{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+    <div class="max-w-md w-full space-y-8 p-8">
+        <div class="text-center">
+            <h2 class="text-3xl font-bold text-gray-900">Sign Out</h2>
+            <p class="mt-2 text-gray-600">Are you sure you want to log out of Zentry?</p>
+        </div>
+
+        <form method="post" action="{% url 'account_logout' %}" class="mt-8 space-y-6">
+            {% csrf_token %}
+            <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">
+                Log Out
+            </button>
+            <div class="text-center">
+                <a href="/" class="text-sm text-primary-600 hover:text-primary-500">
+                    Cancel and return to dashboard
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

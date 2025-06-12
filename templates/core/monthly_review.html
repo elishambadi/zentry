@@ -1,0 +1,73 @@
+
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}Monthly Review - Zentry{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="mb-8">
+        <h1 class="text-2xl font-semibold text-gray-900">Monthly Review</h1>
+        <p class="text-gray-600">{{ month_name }} {{ start_of_month.year }}</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Overall Stats -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Monthly Summary</h3>
+            <div class="space-y-4">
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-medium text-gray-700">Completion Rate</span>
+                        <span class="text-2xl font-bold text-primary-600">{{ completion_rate|floatformat:0 }}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="bg-primary-500 h-3 rounded-full" style="width: {{ completion_rate }}%"></div>
+                    </div>
+                </div>
+                <div class="text-center pt-4">
+                    <p class="text-sm text-gray-600">{{ completed_tasks }}/{{ total_tasks }} total tasks completed</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Category Breakdown -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Category Performance</h3>
+            <div class="space-y-3">
+                {% for category, stats in tag_stats.items %}
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium text-gray-700">{{ category }}</span>
+                    <div class="flex items-center space-x-2">
+                        <div class="text-sm text-gray-600">{{ stats.completed }}/{{ stats.total }}</div>
+                        <div class="w-16 bg-gray-200 rounded-full h-2">
+                            <div class="bg-primary-500 h-2 rounded-full" style="width: {{ stats.rate }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Progress Chart -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Daily Progress</h3>
+        <div class="h-64 flex items-end justify-between space-x-1">
+            {% for day_stat in daily_stats %}
+            <div class="flex-1 flex flex-col items-center">
+                <div class="w-full bg-gray-200 rounded-t" style="height: {{ day_stat.rate|default:5 }}px; min-height: 4px; max-height: 200px;">
+                    {% if day_stat.total > 0 %}
+                    <div class="w-full bg-primary-500 rounded-t" style="height: {{ day_stat.rate }}%; min-height: 2px;"></div>
+                    {% endif %}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">{{ day_stat.day }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="mt-4 text-center text-sm text-gray-600">
+            <p>Daily task completion rates throughout the month</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
