@@ -8,8 +8,10 @@ defusedxml==0.7.1
 Django==4.2.7
 django-allauth==0.57.0
 django-crispy-forms==2.0
+gunicorn==23.0.0
 idna==3.10
 oauthlib==3.2.2
+packaging==25.0
 Pillow==10.0.1
 psycopg2-binary==2.9.7
 pycparser==2.22
@@ -21,4 +23,3 @@ requests-oauthlib==2.0.0
 sqlparse==0.5.3
 typing_extensions==4.14.0
 urllib3==2.4.0
-gunicorn
