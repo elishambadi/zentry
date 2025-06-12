@@ -29,6 +29,10 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['zentry.elimbadi.com', 'localhost']
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://zentry.elimbadi.com",
+]
+
 SECRET_KEY = config('SECRET_KEY')
 
 # Application definition
