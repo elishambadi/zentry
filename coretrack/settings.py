@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-z2rotq)1%=%lb=1^4khl8st@q4llzkk)#o*87o*i!pnak)j)v#
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['zentry.elimbadi.com', 'localhost']
 
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', cast=bool)
