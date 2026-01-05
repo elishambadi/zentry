@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">🎯 Goals</h1>
+        
+        <!-- Add New Goal -->
+        <form method="post" class="mb-8 bg-gray-50 p-4 rounded-lg">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    {{ form.title }}
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    {{ form.term }}
+                    {{ form.target_date }}
+                </div>
+            </div>
+            <div class="mb-4">
+                {{ form.description }}
+            </div>
+            <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-md">
+                Add Goal
+            </button>
+        </form>
+        
+        <!-- Short-term Goals -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-blue-600 mb-4">📅 Short-term Goals</h2>
+            <div class="space-y-4">
+                {% for goal in short_term_goals %}
+                <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-lg text-gray-800">{{ goal.title }}</h3>
+                            {% if goal.description %}
+                            <p class="text-gray-600 mt-2">{{ goal.description }}</p>
+                            {% endif %}
+                            {% if goal.target_date %}
+                            <p class="text-sm text-gray-500 mt-2">Target: {{ goal.target_date }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="flex space-x-2 ml-4">
+                            <button onclick="toggleGoal({{ goal.id }})" 
+                                    class="bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-1 rounded">
+                                Complete
+                            </button>
+                            <button onclick="deleteGoal({{ goal.id }})" 
+                                    class="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-gray-500">No short-term goals yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Long-term Goals -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-purple-600 mb-4">🌟 Long-term Goals</h2>
+            <div class="space-y-4">
+                {% for goal in long_term_goals %}
+                <div class="bg-purple-50 border-l-4 border-purple-500 rounded-lg p-4">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-lg text-gray-800">{{ goal.title }}</h3>
+                            {% if goal.description %}
+                            <p class="text-gray-600 mt-2">{{ goal.description }}</p>
+                            {% endif %}
+                            {% if goal.target_date %}
+                            <p class="text-sm text-gray-500 mt-2">Target: {{ goal.target_date }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="flex space-x-2 ml-4">
+                            <button onclick="toggleGoal({{ goal.id }})" 
+                                    class="bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-1 rounded">
+                                Complete
+                            </button>
+                            <button onclick="deleteGoal({{ goal.id }})" 
+                                    class="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-gray-500">No long-term goals yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Completed Goals -->
+        {% if completed_goals %}
+        <div>
+            <h2 class="text-2xl font-bold text-green-600 mb-4">✅ Completed Goals</h2>
+            <div class="space-y-4">
+                {% for goal in completed_goals %}
+                <div class="bg-green-50 border-l-4 border-green-500 rounded-lg p-4">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-lg text-gray-800 line-through">{{ goal.title }}</h3>
+                            {% if goal.description %}
+                            <p class="text-gray-600 mt-2">{{ goal.description }}</p>
+                            {% endif %}
+                        </div>
+                        <button onclick="toggleGoal({{ goal.id }})" 
+                                class="bg-gray-500 hover:bg-gray-600 text-white text-sm px-3 py-1 rounded">
+                            Uncomplete
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function toggleGoal(goalId) {
+    fetch(`/goal/toggle/${goalId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        location.reload();
+    });
+}
+
+function deleteGoal(goalId) {
+    if (confirm('Are you sure you want to delete this goal?')) {
+        fetch(`/goal/delete/${goalId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

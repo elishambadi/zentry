@@ -1,2 +1,8 @@
 .env
 staticfiles
+
+.core-venv
+
+__pycache__/
+./core/__pycache__/
+*.pyc

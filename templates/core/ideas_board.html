@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">💡 Ideas Board</h1>
+        
+        <!-- Add New Idea -->
+        <form method="post" class="mb-8">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-2">
+                    {{ form.title }}
+                </div>
+                <div>
+                    <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md">
+                        Add Idea
+                    </button>
+                </div>
+            </div>
+            <div class="mt-4">
+                {{ form.description }}
+            </div>
+        </form>
+        
+        <!-- Active Ideas -->
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Active Ideas</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            {% for idea in ideas %}
+            <div class="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+                <h3 class="font-bold text-lg text-gray-800 mb-2">{{ idea.title }}</h3>
+                {% if idea.description %}
+                <p class="text-gray-600 text-sm mb-4">{{ idea.description }}</p>
+                {% endif %}
+                <div class="flex space-x-2">
+                    <button onclick="convertToTask({{ idea.id }})" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded">
+                        Convert to Task
+                    </button>
+                    <button onclick="deleteIdea({{ idea.id }})" 
+                            class="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded">
+                        Delete
+                    </button>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-gray-500 col-span-full">No ideas yet. Add your first idea above!</p>
+            {% endfor %}
+        </div>
+        
+        <!-- Converted Ideas -->
+        {% if converted_ideas %}
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Converted to Tasks</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for idea in converted_ideas %}
+            <div class="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                <h3 class="font-bold text-lg text-gray-800 mb-2">{{ idea.title }}</h3>
+                <p class="text-sm text-green-600">✓ Converted to: {{ idea.task.title }}</p>
+                <a href="{% url 'daily_view' idea.task.date.year idea.task.date.month idea.task.date.day %}" 
+                   class="text-blue-500 hover:underline text-sm">
+                    View Task
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Convert to Task Modal -->
+<div id="convertModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <h3 class="text-lg font-bold mb-4">Convert Idea to Task</h3>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Task Date</label>
+            <input type="date" id="taskDate" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="{{ today|date:'Y-m-d' }}">
+        </div>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Tag</label>
+            <select id="taskTag" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                <option value="W">Work</option>
+                <option value="P">Physical</option>
+                <option value="S">Spiritual</option>
+                <option value="R">Relationships</option>
+                <option value="B">Bonus</option>
+            </select>
+        </div>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+            <select id="taskPriority" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                <option value="L">Low</option>
+                <option value="M" selected>Medium</option>
+                <option value="H">High</option>
+                <option value="U">Urgent</option>
+            </select>
+        </div>
+        <div class="flex space-x-2">
+            <button onclick="confirmConvert()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                Convert
+            </button>
+            <button onclick="closeModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedIdeaId = null;
+
+function convertToTask(ideaId) {
+    selectedIdeaId = ideaId;
+    document.getElementById('convertModal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('convertModal').classList.add('hidden');
+    selectedIdeaId = null;
+}
+
+function confirmConvert() {
+    const date = document.getElementById('taskDate').value;
+    const tag = document.getElementById('taskTag').value;
+    const priority = document.getElementById('taskPriority').value;
+    
+    fetch(`/idea/convert/${selectedIdeaId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `task_date=${date}&tag=${tag}&priority=${priority}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function deleteIdea(ideaId) {
+    if (confirm('Are you sure you want to delete this idea?')) {
+        fetch(`/idea/delete/${ideaId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

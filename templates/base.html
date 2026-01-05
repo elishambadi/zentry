@@ -63,6 +63,8 @@
                     <div class="hidden md:flex space-x-6">
                         <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors">Dashboard</a>
                         <a href="{% url 'calendar' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors">Calendar</a>
+                        <a href="{% url 'ideas_board' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors">💡 Ideas</a>
+                        <a href="{% url 'goals_list' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors">🎯 Goals</a>
                         <a href="{% url 'weekly_review' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors">Weekly</a>
                         <a href="{% url 'monthly_review' %}" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors">Monthly</a>
                     </div>
@@ -82,6 +84,8 @@
             <div x-show="open" class="px-4 pb-4 space-y-2">
                 <a href="{% url 'dashboard' %}" class="block text-gray-600 hover:text-gray-900 py-2">Dashboard</a>
                 <a href="{% url 'calendar' %}" class="block text-gray-600 hover:text-gray-900 py-2">Calendar</a>
+                <a href="{% url 'ideas_board' %}" class="block text-gray-600 hover:text-gray-900 py-2">💡 Ideas</a>
+                <a href="{% url 'goals_list' %}" class="block text-gray-600 hover:text-gray-900 py-2">🎯 Goals</a>
                 <a href="{% url 'weekly_review' %}" class="block text-gray-600 hover:text-gray-900 py-2">Weekly</a>
                 <a href="{% url 'monthly_review' %}" class="block text-gray-600 hover:text-gray-900 py-2">Monthly</a>
             </div>

@@ -1,26 +1,783 @@
-
 {% extends 'base.html' %}
 
+{% block extra_head %}
+<!-- AOS Animation Library -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css" rel="stylesheet">
+<!-- Animate.css for additional animations -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+<!-- Particles.js for background effects -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
+<!-- Typed.js for typing animations -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/typed.js/2.0.16/typed.umd.js"></script>
+<!-- CountUp.js for number animations -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/countup.js/2.8.0/countUp.umd.js"></script>
+<!-- GSAP for advanced animations -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+{% endblock %}
+
 {% block content %}
-<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-    <div class="max-w-md w-full space-y-8 p-8">
-        <div class="text-center">
-            <h1 class="text-4xl font-bold text-gray-900 mb-2">Zentry</h1>
-            <p class="text-lg text-gray-600 mb-8">Minimal. Mindful. Measured.</p>
-            
-            <div class="space-y-4">
-                <a href="{% url 'account_login' %}" class="w-full bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 block text-center">
-                    Sign In
-                </a>
-                <a href="{% url 'account_signup' %}" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-4 rounded-lg transition-colors duration-200 block text-center">
-                    Create Account
-                </a>
-            </div>
+<div class="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+  <!-- Particles.js Background -->
+  <div id="particles-js" class="absolute inset-0"></div>
+  
+  <!-- Animated Background Elements with GSAP -->
+  <div class="absolute inset-0 overflow-hidden">
+    <div class="floating-orb orb-1" data-aos="fade-up" data-aos-delay="100"></div>
+    <div class="floating-orb orb-2" data-aos="fade-down" data-aos-delay="300"></div>
+    <div class="floating-orb orb-3" data-aos="fade-left" data-aos-delay="500"></div>
+    <div class="floating-orb orb-4" data-aos="fade-right" data-aos-delay="700"></div>
+    <div class="floating-orb orb-5" data-aos="zoom-in" data-aos-delay="900"></div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="relative min-h-screen flex items-center justify-center px-4">
+    <div class="max-w-lg w-full space-y-8 p-8 backdrop-blur-sm bg-white/80 rounded-2xl shadow-xl border border-white/20" 
+         data-aos="zoom-in" data-aos-duration="1000">
+      
+      <!-- Header Section -->
+      <div class="text-center space-y-6">
+        <div class="space-y-2">
+          <h1 class="text-5xl font-bold text-gray-900 tracking-tight animate__animated animate__fadeInDown">Zentry</h1>
+          <div class="text-xl text-gray-600 font-light">
+            <span id="typed-tagline"></span>
+          </div>
         </div>
         
-        <div class="mt-12 text-center text-sm text-gray-500">
-            <p>Track your daily tasks, journal your thoughts, and review your progress.</p>
+        <!-- Inspirational Quote -->
+        <div class="py-6" data-aos="fade-up" data-aos-delay="500">
+          <blockquote class="text-gray-700 italic text-center relative">
+            <div class="quote-content">
+              <p class="text-lg font-medium" id="quote-text">"The journey of a thousand miles begins with one step."</p>
+              <cite class="text-sm text-gray-500 mt-2 block" id="quote-author">— Lao Tzu</cite>
+            </div>
+          </blockquote>
         </div>
+
+        <!-- Action Buttons -->
+        <div class="space-y-4" data-aos="fade-up" data-aos-delay="800">
+          
+          <a href="{% url 'account_login' %}" 
+             class="group w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-4 px-6 rounded-xl transition-all duration-300 block text-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 btn-primary">
+            <span class="inline-flex items-center">
+              Sign In
+              <svg class="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </span>
+          </a>
+          
+          <a href="{% url 'account_signup' %}" 
+             class="group w-full bg-white/90 hover:bg-white text-gray-800 font-medium py-4 px-6 rounded-xl transition-all duration-300 block text-center shadow-md hover:shadow-lg border border-gray-200 transform hover:-translate-y-0.5 btn-secondary">
+            <span class="inline-flex items-center">
+              Create Account
+              <svg class="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+            </span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Feature Highlights -->
+      <div class="mt-12 grid grid-cols-3 gap-4 text-center">
+        <div class="feature-card" data-aos="flip-left" data-aos-delay="1000">
+          <div class="w-8 h-8 mx-auto mb-2 text-blue-600">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-gray-800">Track Tasks</p>
+        </div>
+        
+        <div class="feature-card" data-aos="flip-left" data-aos-delay="1200">
+          <div class="w-8 h-8 mx-auto mb-2 text-indigo-600">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-gray-800">Journal</p>
+        </div>
+        
+        <div class="feature-card" data-aos="flip-left" data-aos-delay="1400">
+          <div class="w-8 h-8 mx-auto mb-2 text-purple-600">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-gray-800">Progress</p>
+        </div>
+      </div>
+
+      <!-- Bottom Text -->
+      <div class="mt-8 text-center" data-aos="fade-up" data-aos-delay="1600">
+        <p class="text-sm text-gray-600 leading-relaxed">
+          Streamline your productivity with intentional daily practices and meaningful progress tracking.
+        </p>
+      </div>
     </div>
+  </div>
+
+  <!-- Floating Productivity Stats -->
+  <div class="absolute top-8 right-8 hidden lg:block" data-aos="slide-left" data-aos-delay="2000">
+    <div class="bg-white/80 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-white/20 stat-card">
+      <div class="text-center">
+        <div class="text-2xl font-bold text-gray-800" id="counter1">0</div>
+        <div class="text-xs text-gray-600">Tasks Completed Today</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="absolute bottom-8 left-8 hidden lg:block" data-aos="slide-right" data-aos-delay="2200">
+    <div class="bg-white/80 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-white/20 stat-card">
+      <div class="text-center">
+        <div class="text-2xl font-bold text-indigo-600" id="counter2">0</div>
+        <div class="text-xs text-gray-600">Active Users</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Action Button -->
+  <div class="fixed bottom-8 right-8 z-50" data-aos="zoom-in" data-aos-delay="3000">
+    <button class="fab bg-gradient-to-r from-purple-600 to-pink-600 text-white w-14 h-14 rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300 flex items-center justify-center">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+    </button>
+  </div>
 </div>
+
+<style>
+/* Enhanced Floating Orbs with GSAP animations */
+.floating-orb {
+  position: absolute;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.orb-1 {
+  width: 120px;
+  height: 120px;
+  top: 15%;
+  left: -60px;
+}
+
+.orb-2 {
+  width: 180px;
+  height: 180px;
+  top: 55%;
+  right: -90px;
+}
+
+.orb-3 {
+  width: 100px;
+  height: 100px;
+  top: 75%;
+  left: 15%;
+}
+
+.orb-4 {
+  width: 140px;
+  height: 140px;
+  top: 5%;
+  right: 25%;
+}
+
+.orb-5 {
+  width: 80px;
+  height: 80px;
+  top: 35%;
+  left: 5%;
+}
+
+/* Enhanced Feature Cards */
+.feature-card {
+  padding: 1.5rem;
+  border-radius: 1rem;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transition: left 0.6s;
+}
+
+.feature-card:hover::before {
+  left: 100%;
+}
+
+.feature-card:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced Button Animations */
+.btn-primary, .btn-secondary {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.6s;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
+}
+
+/* Stat Cards with enhanced effects */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+/* FAB Button */
+.fab {
+  position: relative;
+  overflow: hidden;
+}
+
+.fab::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.fab:hover::before {
+  width: 200px;
+  height: 200px;
+}
+
+/* Particles.js customization */
+#particles-js {
+  z-index: 1;
+}
+
+#particles-js canvas {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 640px) {
+  .floating-orb {
+    display: none;
+  }
+  
+  .fab {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .fab svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
+}
+</style>
+
+<script>
+// Counter Animation
+document.addEventListener('DOMContentLoaded', function() {
+  const counters = document.querySelectorAll('.counter');
+  
+  counters.forEach(counter => {
+    const target = parseInt(counter.dataset.target);
+    const increment = target / 100;
+    let current = 0;
+    
+    const updateCounter = () => {
+      if (current < target) {
+        current += increment;
+        counter.textContent = Math.ceil(current).toLocaleString();
+        setTimeout(updateCounter, 50);
+      } else {
+        counter.textContent = target.toLocaleString();
+      }
+    };
+    
+    // Start animation after a delay
+    setTimeout(updateCounter, 1000);
+  });
+
+  // Rotating quotes
+  const quotes = [
+    { text: "The journey of a thousand miles begins with one step.", author: "Lao Tzu" },
+    { text: "Success is the sum of small efforts repeated day in and day out.", author: "Robert Collier" },
+    { text: "What gets measured gets managed.", author: "Peter Drucker" },
+    { text: "Progress, not perfection.", author: "Anonymous" },
+    { text: "Small daily improvements lead to staggering long-term results.", author: "Robin Sharma" }
+  ];
+  
+  let currentQuote = 0;
+  const quoteElement = document.querySelector('.quote-content');
+  
+  function rotateQuote() {
+    currentQuote = (currentQuote + 1) % quotes.length;
+    const quote = quotes[currentQuote];
+    
+    quoteElement.style.opacity = '0';
+    
+    setTimeout(() => {
+      quoteElement.innerHTML = `
+        <p class="text-lg font-medium">"${quote.text}"</p>
+        <cite class="text-sm text-gray-500 mt-2 block">— ${quote.author}</cite>
+      `;
+      quoteElement.style.opacity = '1';
+    }, 500);
+  }
+  
+  // Rotate quotes every 6 seconds
+  setInterval(rotateQuote, 6000);
+});
+</script>
+
+<script>
+// Initialize all libraries and animations
+document.addEventListener('DOMContentLoaded', function() {
+  
+  // Initialize AOS (Animate On Scroll)
+  AOS.init({
+    duration: 1000,
+    easing: 'ease-in-out',
+    once: true,
+    mirror: false
+  });
+
+  // Initialize Particles.js
+  particlesJS('particles-js', {
+    "particles": {
+      "number": {
+        "value": 60,
+        "density": {
+          "enable": true,
+          "value_area": 800
+        }
+      },
+      "color": {
+        "value": ["#6366f1", "#8b5cf6", "#3b82f6"]
+      },
+      "shape": {
+        "type": "circle",
+        "stroke": {
+          "width": 0,
+          "color": "#000000"
+        }
+      },
+      "opacity": {
+        "value": 0.3,
+        "random": true,
+        "anim": {
+          "enable": true,
+          "speed": 1,
+          "opacity_min": 0.1,
+          "sync": false
+        }
+      },
+      "size": {
+        "value": 3,
+        "random": true,
+        "anim": {
+          "enable": false,
+          "speed": 40,
+          "size_min": 0.1,
+          "sync": false
+        }
+      },
+      "line_linked": {
+        "enable": true,
+        "distance": 150,
+        "color": "#6366f1",
+        "opacity": 0.2,
+        "width": 1
+      },
+      "move": {
+        "enable": true,
+        "speed": 2,
+        "direction": "none",
+        "random": false,
+        "straight": false,
+        "out_mode": "out",
+        "bounce": false,
+        "attract": {
+          "enable": false,
+          "rotateX": 600,
+          "rotateY": 1200
+        }
+      }
+    },
+    "interactivity": {
+      "detect_on": "canvas",
+      "events": {
+        "onhover": {
+          "enable": true,
+          "mode": "repulse"
+        },
+        "onclick": {
+          "enable": true,
+          "mode": "push"
+        },
+        "resize": true
+      },
+      "modes": {
+        "grab": {
+          "distance": 140,
+          "line_linked": {
+            "opacity": 1
+          }
+        },
+        "bubble": {
+          "distance": 400,
+          "size": 40,
+          "duration": 2,
+          "opacity": 8,
+          "speed": 3
+        },
+        "repulse": {
+          "distance": 100,
+          "duration": 0.4
+        },
+        "push": {
+          "particles_nb": 4
+        },
+        "remove": {
+          "particles_nb": 2
+        }
+      }
+    },
+    "retina_detect": true
+  });
+
+  // Initialize Typed.js for tagline
+  const typed = new Typed('#typed-tagline', {
+    strings: [
+      'Minimal. Mindful. Measured.',
+      'Track. Reflect. Progress.',
+      'Simple. Focused. Effective.',
+      'Your Journey. Your Growth.'
+    ],
+    typeSpeed: 50,
+    backSpeed: 30,
+    backDelay: 2000,
+    startDelay: 500,
+    loop: true,
+    showCursor: true,
+    cursorChar: '|'
+  });
+
+  // Initialize CountUp.js for counters
+  const counter1 = new CountUp('counter1', 2847, {
+    duration: 3,
+    separator: ',',
+    delay: 2
+  });
+  
+  const counter2 = new CountUp('counter2', 156, {
+    duration: 2.5,
+    separator: ',',
+    delay: 2.5
+  });
+
+  // Start counters
+  setTimeout(() => {
+    if (!counter1.error) counter1.start();
+    if (!counter2.error) counter2.start();
+  }, 2000);
+
+  // GSAP Animations for floating orbs
+  gsap.set('.floating-orb', { 
+    scale: 0,
+    opacity: 0 
+  });
+
+  // Animate orbs with GSAP
+  gsap.to('.orb-1', {
+    scale: 1,
+    opacity: 0.7,
+    duration: 2,
+    delay: 0.5,
+    ease: "back.out(1.7)",
+    repeat: -1,
+    yoyo: true,
+    repeatDelay: 3
+  });
+
+  gsap.to('.orb-2', {
+    scale: 1,
+    opacity: 0.6,
+    duration: 2.5,
+    delay: 1,
+    ease: "back.out(1.7)",
+    repeat: -1,
+    yoyo: true,
+    repeatDelay: 4
+  });
+
+  gsap.to('.orb-3', {
+    scale: 1,
+    opacity: 0.8,
+    duration: 1.8,
+    delay: 1.5,
+    ease: "back.out(1.7)",
+    repeat: -1,
+    yoyo: true,
+    repeatDelay: 2.5
+  });
+
+  gsap.to('.orb-4', {
+    scale: 1,
+    opacity: 0.5,
+    duration: 2.2,
+    delay: 0.8,
+    ease: "back.out(1.7)",
+    repeat: -1,
+    yoyo: true,
+    repeatDelay: 3.5
+  });
+
+  gsap.to('.orb-5', {
+    scale: 1,
+    opacity: 0.9,
+    duration: 1.5,
+    delay: 2,
+    ease: "back.out(1.7)",
+    repeat: -1,
+    yoyo: true,
+    repeatDelay: 2
+  });
+
+  // Continuous floating animation for orbs
+  gsap.to('.floating-orb', {
+    y: "random(-30, 30)",
+    x: "random(-20, 20)",
+    rotation: "random(-15, 15)",
+    duration: "random(4, 8)",
+    repeat: -1,
+    yoyo: true,
+    ease: "sine.inOut",
+    stagger: {
+      amount: 2,
+      from: "random"
+    }
+  });
+
+  // Rotating productivity quotes
+  const quotes = [
+    { text: "The journey of a thousand miles begins with one step.", author: "Lao Tzu" },
+    { text: "Success is the sum of small efforts repeated day in and day out.", author: "Robert Collier" },
+    { text: "What gets measured gets managed.", author: "Peter Drucker" },
+    { text: "Progress, not perfection.", author: "Anonymous" },
+    { text: "Small daily improvements lead to staggering long-term results.", author: "Robin Sharma" },
+    { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
+    { text: "You don't have to be great to get started, but you have to get started to be great.", author: "Les Brown" }
+  ];
+  
+  let currentQuote = 0;
+  const quoteText = document.getElementById('quote-text');
+  const quoteAuthor = document.getElementById('quote-author');
+  
+  function rotateQuote() {
+    // Fade out
+    gsap.to([quoteText, quoteAuthor], {
+      opacity: 0,
+      y: -20,
+      duration: 0.5,
+      ease: "power2.in",
+      onComplete: () => {
+        // Change quote
+        currentQuote = (currentQuote + 1) % quotes.length;
+        const quote = quotes[currentQuote];
+        
+        quoteText.textContent = `"${quote.text}"`;
+        quoteAuthor.textContent = `— ${quote.author}`;
+        
+        // Fade in
+        gsap.to([quoteText, quoteAuthor], {
+          opacity: 1,
+          y: 0,
+          duration: 0.7,
+          ease: "power2.out",
+          stagger: 0.1
+        });
+      }
+    });
+  }
+  
+  // Rotate quotes every 5 seconds
+  setInterval(rotateQuote, 5000);
+
+  // Button hover animations with GSAP
+  document.querySelectorAll('.btn-primary, .btn-secondary').forEach(btn => {
+    btn.addEventListener('mouseenter', function() {
+      gsap.to(this, {
+        scale: 1.05,
+        duration: 0.3,
+        ease: "power2.out"
+      });
+    });
+    
+    btn.addEventListener('mouseleave', function() {
+      gsap.to(this, {
+        scale: 1,
+        duration: 0.3,
+        ease: "power2.out"
+      });
+    });
+  });
+
+  // Feature cards interaction
+  document.querySelectorAll('.feature-card').forEach(card => {
+    card.addEventListener('mouseenter', function() {
+      gsap.to(this, {
+        rotationY: 5,
+        duration: 0.4,
+        ease: "power2.out"
+      });
+    });
+    
+    card.addEventListener('mouseleave', function() {
+      gsap.to(this, {
+        rotationY: 0,
+        duration: 0.4,
+        ease: "power2.out"
+      });
+    });
+  });
+
+  // FAB button interaction
+  const fab = document.querySelector('.fab');
+  if (fab) {
+    fab.addEventListener('click', function() {
+      // Create ripple effect
+      gsap.to(this, {
+        scale: 0.95,
+        duration: 0.1,
+        yoyo: true,
+        repeat: 1,
+        ease: "power2.inOut"
+      });
+      
+      // Show tooltip or help
+      gsap.to(this, {
+        rotation: 360,
+        duration: 0.6,
+        ease: "back.out(1.7)"
+      });
+    });
+  }
+
+  // Parallax effect for stat cards
+  window.addEventListener('scroll', () => {
+    const scrolled = window.pageYOffset;
+    const statCards = document.querySelectorAll('.stat-card');
+    
+    statCards.forEach((card, index) => {
+      const rate = scrolled * -0.5 * (index + 1);
+      gsap.to(card, {
+        y: rate,
+        duration: 0.5,
+        ease: "power1.out"
+      });
+    });
+  });
+
+  // Mouse movement parallax for orbs
+  document.addEventListener('mousemove', (e) => {
+    const mouseX = e.clientX / window.innerWidth;
+    const mouseY = e.clientY / window.innerHeight;
+    
+    gsap.to('.orb-1', {
+      x: mouseX * 30,
+      y: mouseY * 30,
+      duration: 2,
+      ease: "power1.out"
+    });
+    
+    gsap.to('.orb-2', {
+      x: mouseX * -25,
+      y: mouseY * -25,
+      duration: 2.5,
+      ease: "power1.out"
+    });
+    
+    gsap.to('.orb-3', {
+      x: mouseX * 20,
+      y: mouseY * -20,
+      duration: 1.8,
+      ease: "power1.out"
+    });
+  });
+
+  // Add some extra flair with periodic animations
+  setInterval(() => {
+    // Random orb glow
+    const randomOrb = document.querySelector(`.orb-${Math.floor(Math.random() * 5) + 1}`);
+    if (randomOrb) {
+      gsap.to(randomOrb, {
+        boxShadow: "0 0 30px rgba(99, 102, 241, 0.6)",
+        duration: 1,
+        yoyo: true,
+        repeat: 1,
+        ease: "power2.inOut"
+      });
+    }
+  }, 8000);
+
+});
+
+// AOS refresh on window resize
+window.addEventListener('resize', () => {
+  AOS.refresh();
+});
+</script>
 {% endblock %}

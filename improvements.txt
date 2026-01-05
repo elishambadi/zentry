@@ -1,0 +1,11 @@
+Add features to zentry: - create subtask, add note to subtask or task. Add a url or link to an article. add priority.
+
+Add features to zentry: edit task, in month summary, display all tasks, subtasks, links everything for the month. Also add a mood section to set the mood for the day.
+
+Finally, add feature to show tasks carried on from previous day. And an ideas board, so ideas don't have to stay in my head. An idea can be converted to a task hence same schema.
+
+Also add goals section. Short-term, long-term and allow goals to be attached to a task. Finally, improve journal.
+
+Add more features to the journal. Rich-text editing.
+
+Add option to task, carry to next-day, but add to metadata, marked as overdue. and overdue date.
