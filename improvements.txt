@@ -1,11 +1,29 @@
-Add features to zentry: - create subtask, add note to subtask or task. Add a url or link to an article. add priority.
+FEATURE 1
 
-Add features to zentry: edit task, in month summary, display all tasks, subtasks, links everything for the month. Also add a mood section to set the mood for the day.
+Plug in an AI chatbot component, to be used to optimize on any of my tasks or improve any of my ideas.
 
-Finally, add feature to show tasks carried on from previous day. And an ideas board, so ideas don't have to stay in my head. An idea can be converted to a task hence same schema.
+Or think through anything I need to think through.
 
-Also add goals section. Short-term, long-term and allow goals to be attached to a task. Finally, improve journal.
+Let it use dynamic memory of all of my tasks depending on category or whatever. It needs access to my tasks as needed and completions and ideas and goals and everything.
 
-Add more features to the journal. Rich-text editing.
+You can build a dynamic algorithm to do this e.g.
+1. Send task to be thought through, ask the AI chatbot what it needs from our  completions and ideas and goals and everything. Have also context of the books I am reading this month and my favorite authors to be used in making the brief.
+2. It replies, you provide the needed information and ask for insights.
+3. With context AI sends insights in brief.
+4. Save all AI chat responses in memory for the future.
 
-Add option to task, carry to next-day, but add to metadata, marked as overdue. and overdue date.
+Call this feature ZenAI. and let it always emerge from the left sidebar or a popup in chat.
+
+Also record all the chats for each section. I want first-class AI support top-notch.
+
+You can see how I implemented AI calls in the file sample_ai_view.py.
+
+FEATURE 2
+
+Move the topbar navigation to sidebar.
+
+Allow user to decide their default page, some may want the calendar or the day page or ideas page. Let it be flexible.
+
+FEATURE 3
+
+Add PWA ability I'll provide a logo.

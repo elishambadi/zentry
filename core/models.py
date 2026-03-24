@@ -179,3 +179,65 @@ class JournalEntry(models.Model):
     
     def __str__(self):
         return f"Journal - {self.user.username} - {self.date}"
+
+
+class UserPreference(models.Model):
+    DEFAULT_PAGE_CHOICES = [
+        ('daily', 'Daily View'),
+        ('calendar', 'Calendar'),
+        ('ideas', 'Ideas Board'),
+        ('goals', 'Goals'),
+        ('weekly', 'Weekly Review'),
+        ('monthly', 'Monthly Review'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='preferences')
+    default_page = models.CharField(max_length=20, choices=DEFAULT_PAGE_CHOICES, default='daily')
+    monthly_books = models.TextField(blank=True)
+    favorite_authors = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Preferences - {self.user.username}"
+
+
+class ZenChatSession(models.Model):
+    SECTION_CHOICES = [
+        ('general', 'General'),
+        ('task', 'Task'),
+        ('idea', 'Idea'),
+        ('goal', 'Goal'),
+        ('review', 'Review'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='zen_chat_sessions')
+    section = models.CharField(max_length=20, choices=SECTION_CHOICES, default='general')
+    title = models.CharField(max_length=200, default='New ZenAI Chat')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.title} ({self.section})"
+
+
+class ZenChatMessage(models.Model):
+    ROLE_CHOICES = [
+        ('user', 'User'),
+        ('assistant', 'Assistant'),
+        ('system', 'System'),
+    ]
+
+    session = models.ForeignKey(ZenChatSession, on_delete=models.CASCADE, related_name='messages')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    content = models.TextField()
+    context_snapshot = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.session_id} - {self.role}"

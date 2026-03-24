@@ -1,6 +1,19 @@
 # core/admin.py
 from django.contrib import admin
-from .models import Task, JournalEntry, SubTask, Note, Link, Idea, Goal, TaskGoal, DailyMood
+from .models import (
+    Task,
+    JournalEntry,
+    SubTask,
+    Note,
+    Link,
+    Idea,
+    Goal,
+    TaskGoal,
+    DailyMood,
+    UserPreference,
+    ZenChatSession,
+    ZenChatMessage,
+)
 
 
 class SubTaskInline(admin.TabularInline):
@@ -95,3 +108,24 @@ class JournalEntryAdmin(admin.ModelAdmin):
     list_filter = ['date']
     search_fields = ['user__username', 'content']
     date_hierarchy = 'date'
+
+
+@admin.register(UserPreference)
+class UserPreferenceAdmin(admin.ModelAdmin):
+    list_display = ['user', 'default_page', 'updated_at']
+    list_filter = ['default_page', 'updated_at']
+    search_fields = ['user__username', 'monthly_books', 'favorite_authors']
+
+
+@admin.register(ZenChatSession)
+class ZenChatSessionAdmin(admin.ModelAdmin):
+    list_display = ['title', 'user', 'section', 'updated_at']
+    list_filter = ['section', 'updated_at']
+    search_fields = ['title', 'user__username']
+
+
+@admin.register(ZenChatMessage)
+class ZenChatMessageAdmin(admin.ModelAdmin):
+    list_display = ['session', 'role', 'created_at']
+    list_filter = ['role', 'created_at']
+    search_fields = ['content', 'session__title', 'session__user__username']

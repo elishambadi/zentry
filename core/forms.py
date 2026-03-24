@@ -1,6 +1,6 @@
 # core/forms.py
 from django import forms
-from .models import Task, JournalEntry, SubTask, Note, Link, Idea, Goal, DailyMood
+from .models import Task, JournalEntry, SubTask, Note, Link, Idea, Goal, DailyMood, UserPreference
 
 class TaskForm(forms.ModelForm):
     class Meta:
@@ -150,4 +150,25 @@ class JournalForm(forms.ModelForm):
                 'placeholder': 'Dear diary, today I...',
                 'id': 'journal-editor'
             })
+        }
+
+
+class UserPreferenceForm(forms.ModelForm):
+    class Meta:
+        model = UserPreference
+        fields = ['default_page', 'monthly_books', 'favorite_authors']
+        widgets = {
+            'default_page': forms.Select(attrs={
+                'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent'
+            }),
+            'monthly_books': forms.Textarea(attrs={
+                'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'placeholder': 'Books you are reading this month (one per line)...',
+                'rows': 4
+            }),
+            'favorite_authors': forms.Textarea(attrs={
+                'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'placeholder': 'Favorite authors, thinkers, or references...',
+                'rows': 3
+            }),
         }

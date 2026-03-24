@@ -16,12 +16,13 @@
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+<div class="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-100 via-blue-100 to-indigo-200">
+  <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(99,102,241,0.18),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(59,130,246,0.16),_transparent_30%)]"></div>
   <!-- Particles.js Background -->
-  <div id="particles-js" class="absolute inset-0"></div>
+  <div id="particles-js" class="absolute inset-0 z-0 pointer-events-none opacity-70"></div>
   
   <!-- Animated Background Elements with GSAP -->
-  <div class="absolute inset-0 overflow-hidden">
+  <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
     <div class="floating-orb orb-1" data-aos="fade-up" data-aos-delay="100"></div>
     <div class="floating-orb orb-2" data-aos="fade-down" data-aos-delay="300"></div>
     <div class="floating-orb orb-3" data-aos="fade-left" data-aos-delay="500"></div>
@@ -30,8 +31,8 @@
   </div>
 
   <!-- Main Content -->
-  <div class="relative min-h-screen flex items-center justify-center px-4">
-    <div class="max-w-lg w-full space-y-8 p-8 backdrop-blur-sm bg-white/80 rounded-2xl shadow-xl border border-white/20" 
+  <div class="relative z-10 min-h-screen flex items-center justify-center px-4 py-12">
+    <div class="max-w-lg w-full space-y-8 p-8 backdrop-blur-md bg-white/92 rounded-2xl shadow-2xl border border-white/60" 
          data-aos="zoom-in" data-aos-duration="1000">
       
       <!-- Header Section -->
@@ -118,8 +119,8 @@
   </div>
 
   <!-- Floating Productivity Stats -->
-  <div class="absolute top-8 right-8 hidden lg:block" data-aos="slide-left" data-aos-delay="2000">
-    <div class="bg-white/80 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-white/20 stat-card">
+  <div class="absolute top-8 right-8 z-10 hidden lg:block" data-aos="slide-left" data-aos-delay="2000">
+    <div class="bg-white/90 backdrop-blur-md rounded-lg p-4 shadow-lg border border-white/40 stat-card">
       <div class="text-center">
         <div class="text-2xl font-bold text-gray-800" id="counter1">0</div>
         <div class="text-xs text-gray-600">Tasks Completed Today</div>
@@ -127,8 +128,8 @@
     </div>
   </div>
 
-  <div class="absolute bottom-8 left-8 hidden lg:block" data-aos="slide-right" data-aos-delay="2200">
-    <div class="bg-white/80 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-white/20 stat-card">
+  <div class="absolute bottom-8 left-8 z-10 hidden lg:block" data-aos="slide-right" data-aos-delay="2200">
+    <div class="bg-white/90 backdrop-blur-md rounded-lg p-4 shadow-lg border border-white/40 stat-card">
       <div class="text-center">
         <div class="text-2xl font-bold text-indigo-600" id="counter2">0</div>
         <div class="text-xs text-gray-600">Active Users</div>

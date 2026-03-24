@@ -3,15 +3,357 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import views as auth_views
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.db.models import Q, Count, Prefetch
+from django.template.loader import render_to_string
 from datetime import date, datetime, timedelta
+from django.utils import timezone
+from decouple import config
+import json
 import calendar
-from .models import Task, JournalEntry, SubTask, Note, Link, Idea, Goal, TaskGoal, DailyMood
+from .models import (
+    Task,
+    JournalEntry,
+    SubTask,
+    Note,
+    Link,
+    Idea,
+    Goal,
+    TaskGoal,
+    DailyMood,
+    UserPreference,
+    ZenChatSession,
+    ZenChatMessage,
+)
 from .forms import (TaskForm, TaskEditForm, JournalForm, SubTaskForm, NoteForm, 
-                    LinkForm, IdeaForm, GoalForm, DailyMoodForm)
+                    LinkForm, IdeaForm, GoalForm, DailyMoodForm, UserPreferenceForm)
+
+try:
+    from anthropic import Anthropic
+except ImportError:
+    Anthropic = None
+
+
+def get_or_create_user_preferences(user):
+    preferences, _ = UserPreference.objects.get_or_create(user=user)
+    return preferences
+
+
+def build_zen_context(user, section):
+    today = date.today()
+    start_week = today - timedelta(days=today.weekday())
+    end_week = start_week + timedelta(days=6)
+
+    recent_tasks = Task.objects.filter(user=user).order_by('-date', '-created_at')[:12]
+    completed_recent = Task.objects.filter(user=user, completed=True).order_by('-date')[:8]
+    active_goals = Goal.objects.filter(user=user, completed=False).order_by('-updated_at')[:8]
+    recent_ideas = Idea.objects.filter(user=user).order_by('-updated_at')[:8]
+    journals = JournalEntry.objects.filter(user=user).order_by('-date')[:5]
+
+    weekly_tasks = Task.objects.filter(user=user, date__range=[start_week, end_week])
+    weekly_total = weekly_tasks.count()
+    weekly_completed = weekly_tasks.filter(completed=True).count()
+
+    preferences = get_or_create_user_preferences(user)
+
+    return {
+        'section': section,
+        'today': today.isoformat(),
+        'weekly_summary': {
+            'start': start_week.isoformat(),
+            'end': end_week.isoformat(),
+            'total_tasks': weekly_total,
+            'completed_tasks': weekly_completed,
+        },
+        'recent_tasks': [
+            {
+                'title': task.title,
+                'date': task.date.isoformat(),
+                'tag': task.get_tag_display(),
+                'priority': task.get_priority_display(),
+                'completed': task.completed,
+            }
+            for task in recent_tasks
+        ],
+        'recent_completions': [
+            {
+                'title': task.title,
+                'date': task.date.isoformat(),
+                'tag': task.get_tag_display(),
+            }
+            for task in completed_recent
+        ],
+        'ideas': [
+            {
+                'title': idea.title,
+                'description': idea.description,
+                'converted_to_task': idea.converted_to_task,
+            }
+            for idea in recent_ideas
+        ],
+        'goals': [
+            {
+                'title': goal.title,
+                'term': goal.get_term_display(),
+                'target_date': goal.target_date.isoformat() if goal.target_date else None,
+                'completed': goal.completed,
+            }
+            for goal in active_goals
+        ],
+        'journal_highlights': [journal.content[:300] for journal in journals if journal.content],
+        'reading_context': {
+            'monthly_books': preferences.monthly_books,
+            'favorite_authors': preferences.favorite_authors,
+        },
+    }
+
+
+def parse_zenai_json_response(raw_text):
+    if not raw_text:
+        return None
+
+    text = raw_text.strip()
+    if text.startswith('```json'):
+        text = text[7:]
+    elif text.startswith('```'):
+        text = text[3:]
+    if text.endswith('```'):
+        text = text[:-3]
+
+    text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find('{')
+        end = text.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            try:
+                return json.loads(text[start:end + 1])
+            except json.JSONDecodeError:
+                return None
+    return None
+
+
+def normalize_suggested_tasks(items):
+    if not isinstance(items, list):
+        return []
+
+    normalized = []
+    valid_tags = {choice[0] for choice in Task.TAGS}
+    valid_priorities = {choice[0] for choice in Task.PRIORITY_CHOICES}
+
+    for item in items[:12]:
+        if not isinstance(item, dict):
+            continue
+        title = (item.get('title') or '').strip()
+        if not title:
+            continue
+
+        tag = (item.get('tag') or 'W').strip().upper()
+        priority = (item.get('priority') or 'M').strip().upper()
+        cadence = (item.get('cadence') or 'one-off').strip().lower()
+
+        normalized.append({
+            'title': title[:200],
+            'why': (item.get('why') or '').strip(),
+            'duration_minutes': int(item.get('duration_minutes') or 0) if str(item.get('duration_minutes') or '').isdigit() else 0,
+            'cadence': cadence if cadence in {'daily', 'weekly', 'monthly', 'one-off'} else 'one-off',
+            'frequency_detail': (item.get('frequency_detail') or '').strip(),
+            'recommended_date': (item.get('recommended_date') or '').strip(),
+            'tag': tag if tag in valid_tags else 'W',
+            'priority': priority if priority in valid_priorities else 'M',
+            'note': (item.get('note') or '').strip(),
+        })
+
+    return normalized
+
+
+def build_fallback_zen_payload(context_data):
+    return {
+        'response_markdown': (
+            "I narrowed this into one priority outcome and concrete next actions. "
+            "Use the task cards below to add them directly to your plan."
+        ),
+        'focus_target': 'One measurable weekly outcome',
+        'clarifying_questions': [
+            'Which single outcome matters most this week?',
+            'What constraints must we respect (time, energy, deadlines)?',
+        ],
+        'suggested_tasks': [
+            {
+                'title': 'Define one weekly outcome with metric',
+                'why': 'Prevents focus drift and narrows decisions.',
+                'duration_minutes': 20,
+                'cadence': 'one-off',
+                'frequency_detail': 'Today, once',
+                'recommended_date': date.today().isoformat(),
+                'tag': 'W',
+                'priority': 'H',
+                'note': 'Write: outcome, metric, deadline, and owner.',
+            },
+            {
+                'title': 'Schedule two deep-work blocks',
+                'why': 'Protects execution time for highest-value work.',
+                'duration_minutes': 90,
+                'cadence': 'weekly',
+                'frequency_detail': '2 sessions/week',
+                'recommended_date': date.today().isoformat(),
+                'tag': 'W',
+                'priority': 'H',
+                'note': 'No meetings, no notifications.',
+            },
+        ],
+    }
+
+
+def build_setup_required_payload(missing_tasks, missing_goals):
+    clarifying_questions = []
+    suggested_tasks = []
+
+    if missing_goals:
+        clarifying_questions.append('What is one short-term or long-term goal you want to achieve next?')
+        suggested_tasks.append({
+            'title': 'Create one short-term goal with a target date',
+            'why': 'ZenAI needs a concrete destination before optimizing your path.',
+            'duration_minutes': 10,
+            'cadence': 'one-off',
+            'frequency_detail': 'Do this now',
+            'recommended_date': date.today().isoformat(),
+            'tag': 'W',
+            'priority': 'H',
+            'note': 'Example: Launch MVP landing page in 14 days.',
+        })
+
+    if missing_tasks:
+        clarifying_questions.append('Which concrete tasks are you actively executing this week?')
+        suggested_tasks.append({
+            'title': 'Add three execution tasks tied to your top goal',
+            'why': 'ZenAI can only optimize action plans when tasks exist.',
+            'duration_minutes': 15,
+            'cadence': 'one-off',
+            'frequency_detail': 'Do this now',
+            'recommended_date': date.today().isoformat(),
+            'tag': 'W',
+            'priority': 'H',
+            'note': 'Write clear verb-first tasks with realistic effort estimates.',
+        })
+
+    if not clarifying_questions:
+        clarifying_questions.append('What exact outcome should we optimize first?')
+
+    return {
+        'response_markdown': (
+            'I skipped advanced AI planning for now because your workspace lacks minimum planning context. '
+            'Complete the setup tasks below, then ask again for high-precision optimization.'
+        ),
+        'focus_target': 'Create baseline goals and tasks',
+        'clarifying_questions': clarifying_questions,
+        'suggested_tasks': suggested_tasks,
+    }
+
+
+def build_no_work_zen_payload(missing_tasks, missing_goals):
+    clarifying_questions = []
+    suggested_tasks = []
+
+    if missing_goals:
+        clarifying_questions.append('What short-term or long-term goal are you pursuing right now?')
+        suggested_tasks.append({
+            'title': 'Create one short-term goal',
+            'why': 'ZenAI needs a concrete target to optimize decisions and execution.',
+            'duration_minutes': 10,
+            'cadence': 'one-off',
+            'frequency_detail': 'Do this now',
+            'recommended_date': date.today().isoformat(),
+            'tag': 'W',
+            'priority': 'H',
+            'note': 'Example: Ship MVP landing page in 2 weeks.',
+        })
+
+    if missing_tasks:
+        clarifying_questions.append('What concrete task are you actively working on this week?')
+        suggested_tasks.append({
+            'title': 'Add three execution tasks for this week',
+            'why': 'ZenAI can only optimize what exists as actionable work items.',
+            'duration_minutes': 15,
+            'cadence': 'one-off',
+            'frequency_detail': 'Do this now',
+            'recommended_date': date.today().isoformat(),
+            'tag': 'W',
+            'priority': 'H',
+            'note': 'Include at least one task linked to your top goal.',
+        })
+
+    if not clarifying_questions:
+        clarifying_questions.append('What specific outcome should we optimize next?')
+
+    return {
+        'response_markdown': (
+            'I paused advanced optimization because your workspace needs baseline planning data first. '
+            'Add the suggested setup tasks below, then ask again and I will generate high-precision strategy.'
+        ),
+        'focus_target': 'Set baseline goals and tasks',
+        'clarifying_questions': clarifying_questions,
+        'suggested_tasks': suggested_tasks,
+    }
+
+
+def generate_zenai_reply(user_prompt, context_data, history):
+    prompt = (
+        "You are ZenAI, an elite personal strategy assistant for productivity, planning, execution, and reflective thinking. "
+        "You must converge, not fan out: narrow to the most important target and produce specific next actions. "
+        "Return ONLY valid JSON with this exact schema: "
+        "{"
+        "\"focus_target\": string,"
+        "\"response_markdown\": string,"
+        "\"clarifying_questions\": string[],"
+        "\"suggested_tasks\": ["
+        "{"
+        "\"title\": string,"
+        "\"why\": string,"
+        "\"duration_minutes\": number,"
+        "\"cadence\": \"daily\"|\"weekly\"|\"monthly\"|\"one-off\","
+        "\"frequency_detail\": string,"
+        "\"recommended_date\": string,"
+        "\"tag\": \"P\"|\"S\"|\"W\"|\"R\"|\"B\","
+        "\"priority\": \"L\"|\"M\"|\"H\"|\"U\","
+        "\"note\": string"
+        "}"
+        "]"
+        "}. "
+        "For skill plans (e.g., chess), include exact time controls, named master games, explicit checkpoints and timeframes in tasks. "
+        "Keep suggestions concrete and directly executable."
+    )
+
+    api_key = config('ANTHROPIC_API_KEY', default='').strip()
+    if Anthropic and api_key:
+        client = Anthropic(api_key=api_key)
+        history_text = "\n".join([f"{item['role']}: {item['content']}" for item in history[-8:]])
+        message = (
+            f"Context JSON:\n{json.dumps(context_data, ensure_ascii=False)}\n\n"
+            f"Recent Conversation:\n{history_text}\n\n"
+            f"User Prompt:\n{user_prompt}"
+        )
+        response = client.messages.create(
+            model='claude-sonnet-4-6',
+            max_tokens=900,
+            temperature=0.5,
+            system=prompt,
+            messages=[{'role': 'user', 'content': message}],
+        )
+        if response.content:
+            parsed = parse_zenai_json_response(response.content[0].text)
+            if parsed:
+                return {
+                    'focus_target': (parsed.get('focus_target') or '').strip(),
+                    'response_markdown': (parsed.get('response_markdown') or '').strip(),
+                    'clarifying_questions': parsed.get('clarifying_questions') or [],
+                    'suggested_tasks': normalize_suggested_tasks(parsed.get('suggested_tasks') or []),
+                }
+
+    return build_fallback_zen_payload(context_data)
 
 def home(request):
     if request.user.is_authenticated:
@@ -21,7 +363,253 @@ def home(request):
 @login_required
 def dashboard(request):
     today = date.today()
+    preferences = get_or_create_user_preferences(request.user)
+
+    if preferences.default_page == 'calendar':
+        return redirect('calendar')
+    if preferences.default_page == 'ideas':
+        return redirect('ideas_board')
+    if preferences.default_page == 'goals':
+        return redirect('goals_list')
+    if preferences.default_page == 'weekly':
+        return redirect('weekly_review')
+    if preferences.default_page == 'monthly':
+        return redirect('monthly_review')
+
     return redirect('daily_view', year=today.year, month=today.month, day=today.day)
+
+
+@login_required
+def preferences_view(request):
+    preferences = get_or_create_user_preferences(request.user)
+
+    def build_preferences_payload(preference_obj):
+        return {
+            'default_page': preference_obj.default_page,
+            'monthly_books': preference_obj.monthly_books,
+            'favorite_authors': preference_obj.favorite_authors,
+            'saved_at': preference_obj.updated_at.strftime('%H:%M') if preference_obj.updated_at else '',
+        }
+
+    if request.method == 'POST':
+        form = UserPreferenceForm(request.POST, instance=preferences)
+        if form.is_valid():
+            saved_preferences = form.save()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Preferences updated successfully!',
+                    'preferences': build_preferences_payload(saved_preferences),
+                })
+
+            messages.success(request, 'Preferences updated successfully!')
+            return redirect('preferences')
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors,
+            }, status=400)
+    else:
+        form = UserPreferenceForm(instance=preferences)
+
+    return render(request, 'core/preferences.html', {
+        'form': form,
+        'preferences_data': build_preferences_payload(preferences),
+    })
+
+
+@login_required
+def zenai_panel(request):
+    sessions = ZenChatSession.objects.filter(user=request.user)[:20]
+    return render(request, 'core/zenai.html', {'sessions': sessions})
+
+
+@login_required
+@require_POST
+def zenai_send_message(request):
+    payload = json.loads(request.body or '{}')
+    user_message = (payload.get('message') or '').strip()
+    section = (payload.get('section') or 'general').strip()
+    session_id = payload.get('session_id')
+
+    if not user_message:
+        return JsonResponse({'success': False, 'error': 'Message is required.'}, status=400)
+
+    if session_id:
+        session = get_object_or_404(ZenChatSession, id=session_id, user=request.user)
+    else:
+        session = ZenChatSession.objects.create(
+            user=request.user,
+            section=section if section in dict(ZenChatSession.SECTION_CHOICES) else 'general',
+            title=user_message[:120],
+        )
+
+    context_data = build_zen_context(request.user, session.section)
+    existing_messages = session.messages.values('role', 'content')
+    history = list(existing_messages)
+
+    has_any_tasks = Task.objects.filter(user=request.user).exists()
+    has_active_goals = Goal.objects.filter(user=request.user, completed=False).exists()
+
+    has_any_tasks = Task.objects.filter(user=request.user).exists()
+    has_active_goals = Goal.objects.filter(user=request.user, completed=False).exists()
+
+    ZenChatMessage.objects.create(
+        session=session,
+        role='user',
+        content=user_message,
+        context_snapshot=context_data,
+    )
+
+    if not has_any_tasks or not has_active_goals:
+        assistant_payload = build_no_work_zen_payload(
+            missing_tasks=not has_any_tasks,
+            missing_goals=not has_active_goals,
+        )
+    else:
+        if not has_any_tasks or not has_active_goals:
+            assistant_payload = build_setup_required_payload(
+                missing_tasks=not has_any_tasks,
+                missing_goals=not has_active_goals,
+            )
+        else:
+            assistant_payload = generate_zenai_reply(user_message, context_data, history)
+    assistant_reply = assistant_payload.get('response_markdown') or 'I could not generate a response.'
+
+    ZenChatMessage.objects.create(
+        session=session,
+        role='assistant',
+        content=assistant_reply,
+        context_snapshot={
+            'context': context_data,
+            'assistant_structured': assistant_payload,
+        },
+    )
+
+    session.updated_at = timezone.now()
+    session.save(update_fields=['updated_at'])
+
+    return JsonResponse({
+        'success': True,
+        'session_id': session.id,
+        'reply': assistant_reply,
+        'focus_target': assistant_payload.get('focus_target') or '',
+        'clarifying_questions': assistant_payload.get('clarifying_questions') or [],
+        'suggested_tasks': assistant_payload.get('suggested_tasks') or [],
+    })
+
+
+@login_required
+@require_POST
+def zenai_add_suggested_task(request):
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON payload.'}, status=400)
+
+    title = (payload.get('title') or '').strip()
+    if not title:
+        return JsonResponse({'success': False, 'error': 'Task title is required.'}, status=400)
+
+    recommended_date = (payload.get('recommended_date') or '').strip()
+    task_date = date.today()
+    if recommended_date:
+        try:
+            task_date = datetime.strptime(recommended_date, '%Y-%m-%d').date()
+        except ValueError:
+            task_date = date.today()
+
+    valid_tags = {choice[0] for choice in Task.TAGS}
+    valid_priorities = {choice[0] for choice in Task.PRIORITY_CHOICES}
+    tag = (payload.get('tag') or 'W').strip().upper()
+    priority = (payload.get('priority') or 'M').strip().upper()
+
+    task = Task.objects.create(
+        user=request.user,
+        title=title[:200],
+        date=task_date,
+        tag=tag if tag in valid_tags else 'W',
+        priority=priority if priority in valid_priorities else 'M',
+    )
+
+    note_parts = []
+    for label, key in [
+        ('Why', 'why'),
+        ('Cadence', 'cadence'),
+        ('Frequency', 'frequency_detail'),
+        ('Duration (mins)', 'duration_minutes'),
+        ('Note', 'note'),
+    ]:
+        value = payload.get(key)
+        if value not in [None, '']:
+            note_parts.append(f"{label}: {value}")
+
+    if note_parts:
+        Note.objects.create(task=task, content='\n'.join(note_parts))
+
+    return JsonResponse({
+        'success': True,
+        'task': {
+            'id': task.id,
+            'title': task.title,
+            'date': task.date.isoformat(),
+            'tag': task.get_tag_display(),
+            'priority': task.get_priority_display(),
+        }
+    })
+
+
+@login_required
+def zenai_session_messages(request, session_id):
+    session = get_object_or_404(ZenChatSession, id=session_id, user=request.user)
+    messages_qs = session.messages.values('id', 'role', 'content', 'created_at', 'context_snapshot')
+    return JsonResponse({
+        'success': True,
+        'session': {
+            'id': session.id,
+            'title': session.title,
+            'section': session.section,
+        },
+        'messages': [
+            {
+                'id': item['id'],
+                'role': item['role'],
+                'content': item['content'],
+                'created_at': item['created_at'].isoformat(),
+                'focus_target': (item['context_snapshot'] or {}).get('assistant_structured', {}).get('focus_target', ''),
+                'clarifying_questions': (item['context_snapshot'] or {}).get('assistant_structured', {}).get('clarifying_questions', []),
+                'suggested_tasks': (item['context_snapshot'] or {}).get('assistant_structured', {}).get('suggested_tasks', []),
+            }
+            for item in messages_qs
+        ]
+    })
+
+
+@login_required
+def zenai_sessions(request):
+    sessions = ZenChatSession.objects.filter(user=request.user).values('id', 'title', 'section', 'updated_at')[:30]
+    return JsonResponse({
+        'success': True,
+        'sessions': [
+            {
+                'id': item['id'],
+                'title': item['title'],
+                'section': item['section'],
+                'updated_at': item['updated_at'].isoformat(),
+            }
+            for item in sessions
+        ]
+    })
+
+
+def pwa_manifest(request):
+    return render(request, 'manifest.json', content_type='application/manifest+json')
+
+
+def service_worker(request):
+    content = render_to_string('service-worker.js')
+    return HttpResponse(content, content_type='application/javascript')
 
 @login_required
 def daily_view(request, year, month, day):

@@ -5,10 +5,18 @@ from . import views
 urlpatterns = [
     path('', views.home, name='home'),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('preferences/', views.preferences_view, name='preferences'),
     path('day/<int:year>/<int:month>/<int:day>/', views.daily_view, name='daily_view'),
     path('calendar/', views.calendar_view, name='calendar'),
     path('review/weekly/', views.weekly_review, name='weekly_review'),
     path('review/monthly/', views.monthly_review, name='monthly_review'),
+    path('zenai/', views.zenai_panel, name='zenai_panel'),
+    path('zenai/send/', views.zenai_send_message, name='zenai_send_message'),
+    path('zenai/sessions/', views.zenai_sessions, name='zenai_sessions'),
+    path('zenai/session/<int:session_id>/', views.zenai_session_messages, name='zenai_session_messages'),
+    path('zenai/task/add/', views.zenai_add_suggested_task, name='zenai_add_suggested_task'),
+    path('manifest.json', views.pwa_manifest, name='pwa_manifest'),
+    path('service-worker.js', views.service_worker, name='service_worker'),
     
     # Task management
     path('task/toggle/<int:task_id>/', views.toggle_task, name='toggle_task'),
