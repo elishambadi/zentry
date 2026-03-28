@@ -33,8 +33,8 @@ class LinkInline(admin.TabularInline):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ['title', 'user', 'date', 'tag', 'priority', 'completed', 'carried_over', 'created_at']
-    list_filter = ['tag', 'priority', 'completed', 'carried_over', 'date']
+    list_display = ['title', 'user', 'date', 'tag', 'priority', 'is_rest', 'recurrence_type', 'completed', 'carried_over', 'created_at']
+    list_filter = ['tag', 'priority', 'is_rest', 'recurrence_type', 'completed', 'carried_over', 'date']
     search_fields = ['title', 'user__username']
     date_hierarchy = 'date'
     inlines = [SubTaskInline, NoteInline, LinkInline]

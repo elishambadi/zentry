@@ -20,6 +20,13 @@ class Task(models.Model):
         ('H', 'High'),
         ('U', 'Urgent'),
     ]
+
+    RECURRENCE_CHOICES = [
+        ('none', 'One-time'),
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('custom', 'Custom days'),
+    ]
     
     TAG_COLORS = {
         'P': 'bg-green-100 text-green-800',
@@ -34,6 +41,12 @@ class Task(models.Model):
     title = models.CharField(max_length=200)
     tag = models.CharField(max_length=1, choices=TAGS)
     priority = models.CharField(max_length=1, choices=PRIORITY_CHOICES, default='M')
+    is_rest = models.BooleanField(default=False)
+    recurrence_type = models.CharField(max_length=20, choices=RECURRENCE_CHOICES, default='none')
+    recurrence_days = models.CharField(max_length=32, blank=True)
+    recurrence_end_date = models.DateField(null=True, blank=True)
+    is_recurring_template = models.BooleanField(default=False)
+    recurrence_source = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='recurrence_instances')
     completed = models.BooleanField(default=False)
     carried_over = models.BooleanField(default=False)
     overdue_date = models.DateField(null=True, blank=True)
@@ -47,6 +60,32 @@ class Task(models.Model):
     
     def get_tag_color(self):
         return self.TAG_COLORS.get(self.tag, 'bg-gray-100 text-gray-800')
+
+    def get_recurrence_days_set(self):
+        values = set()
+        for part in (self.recurrence_days or '').split(','):
+            cleaned = part.strip()
+            if cleaned.isdigit():
+                values.add(int(cleaned))
+        return values
+
+    def recurs_on(self, target_date):
+        if self.recurrence_type == 'none' or target_date < self.date:
+            return False
+
+        if self.recurrence_end_date and target_date > self.recurrence_end_date:
+            return False
+
+        if self.recurrence_type == 'daily':
+            return True
+
+        if self.recurrence_type == 'weekly':
+            return target_date.weekday() == self.date.weekday()
+
+        if self.recurrence_type == 'custom':
+            return target_date.weekday() in self.get_recurrence_days_set()
+
+        return False
 
 
 class SubTask(models.Model):
@@ -118,6 +157,7 @@ class Goal(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    image = models.ImageField(upload_to='goal_images/', null=True, blank=True)
     term = models.CharField(max_length=1, choices=TERM_CHOICES)
     target_date = models.DateField(null=True, blank=True)
     completed = models.BooleanField(default=False)

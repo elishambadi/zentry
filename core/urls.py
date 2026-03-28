@@ -15,6 +15,7 @@ urlpatterns = [
     path('zenai/sessions/', views.zenai_sessions, name='zenai_sessions'),
     path('zenai/session/<int:session_id>/', views.zenai_session_messages, name='zenai_session_messages'),
     path('zenai/task/add/', views.zenai_add_suggested_task, name='zenai_add_suggested_task'),
+    path('zenai/calendar-tasks/', views.zenai_calendar_tasks, name='zenai_calendar_tasks'),
     path('manifest.json', views.pwa_manifest, name='pwa_manifest'),
     path('service-worker.js', views.service_worker, name='service_worker'),
     
@@ -45,6 +46,7 @@ urlpatterns = [
     
     # Goals
     path('goals/', views.goals_list, name='goals_list'),
+    path('goal/edit/<int:goal_id>/', views.edit_goal, name='edit_goal'),
     path('goal/toggle/<int:goal_id>/', views.toggle_goal, name='toggle_goal'),
     path('goal/delete/<int:goal_id>/', views.delete_goal, name='delete_goal'),
     path('task/<int:task_id>/goal/attach/', views.attach_goal_to_task, name='attach_goal_to_task'),

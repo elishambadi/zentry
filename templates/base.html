@@ -59,30 +59,30 @@
 <body class="h-full bg-gray-50 font-sans">
     {% if user.is_authenticated %}
     <div class="min-h-screen" x-data="zenaiApp()">
-        <aside class="fixed inset-y-0 left-0 w-72 bg-white border-r border-gray-200 p-6 flex flex-col">
-            <a href="{% url 'dashboard' %}" class="text-2xl font-semibold text-gray-900 mb-8">Zentry</a>
+        <aside class="fixed inset-y-0 left-0 w-16 bg-white border-r border-gray-200 py-4 px-2 flex flex-col items-center">
+            <a href="{% url 'dashboard' %}" class="h-9 w-9 rounded-lg bg-gray-900 text-white flex items-center justify-center text-xs font-semibold mb-5" title="Dashboard">Z</a>
 
-            <nav class="space-y-2">
-                <a href="{% url 'dashboard' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">🏠 Dashboard</a>
-                <a href="{% url 'calendar' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">🗓️ Calendar</a>
-                <a href="{% url 'ideas_board' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">💡 Ideas</a>
-                <a href="{% url 'goals_list' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">🎯 Goals</a>
-                <a href="{% url 'weekly_review' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">📅 Weekly Review</a>
-                <a href="{% url 'monthly_review' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">📊 Monthly Review</a>
-                <a href="{% url 'preferences' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">⚙️ Preferences</a>
+            <nav class="space-y-2 w-full">
+                <a href="{% url 'dashboard' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Dashboard">🏠</a>
+                <a href="{% url 'calendar' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Calendar">🗓️</a>
+                <a href="{% url 'ideas_board' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Ideas">💡</a>
+                <a href="{% url 'goals_list' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Goals">🎯</a>
+                <a href="{% url 'weekly_review' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Weekly Review">📅</a>
+                <a href="{% url 'monthly_review' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Monthly Review">📊</a>
+                <a href="{% url 'preferences' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Preferences">⚙️</a>
             </nav>
 
-            <button @click="toggleZenAI()" class="mt-6 w-full bg-primary-500 hover:bg-primary-600 text-white rounded-xl py-3 px-4 text-sm font-medium transition-colors">
-                ✨ Open ZenAI
+            <button @click="toggleZenAI()" class="mt-4 h-10 w-10 rounded-lg bg-primary-500 hover:bg-primary-600 text-white text-base" title="Open ZenAI">
+                ✨
             </button>
 
-            <div class="mt-auto pt-8 border-t border-gray-100">
-                <p class="text-sm text-gray-600 mb-2">Hello, {{ user.first_name|default:user.username }}</p>
-                <a href="{% url 'account_logout' %}" class="text-sm text-gray-600 hover:text-gray-900">Logout</a>
+            <div class="mt-auto pt-4 border-t border-gray-100 w-full flex flex-col items-center gap-2">
+                <span class="text-[10px] text-gray-400" title="{{ user.first_name|default:user.username }}">👤</span>
+                <a href="{% url 'account_logout' %}" class="h-8 w-8 rounded-md flex items-center justify-center text-gray-500 hover:bg-gray-100" title="Logout">↩</a>
             </div>
         </aside>
 
-        <div class="ml-72">
+        <div class="ml-16">
             {% if messages %}
             <div class="px-6 pt-6">
                 {% for message in messages %}
@@ -102,118 +102,338 @@
             </main>
         </div>
 
-        <div x-show="zenOpen" x-transition class="fixed top-0 right-0 h-full w-full max-w-xl bg-white border-l border-gray-200 shadow-2xl z-50 flex flex-col">
-            <div class="p-4 border-b border-gray-200 flex items-center justify-between">
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900">ZenAI</h3>
-                    <p class="text-sm text-gray-500">Memory-aware strategy chat for your work.</p>
+        <!-- ZenAI Drawer -->
+        <div
+            x-show="zenOpen"
+            x-transition
+            :class="drawerReduced ? 'max-w-[4.5rem]' : 'max-w-xl'"
+            class="fixed top-0 right-0 h-full w-full bg-white border-l border-gray-200 shadow-2xl z-50 flex flex-col transition-all duration-200"
+        >
+
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-gray-200 px-3 py-3">
+                <div x-show="!drawerReduced" class="px-2">
+                    <h3 class="text-base font-semibold text-gray-900">✨ ZenAI</h3>
+                    <p class="text-xs text-gray-400 mt-0.5 italic">"Today I will cover twenty-five miles and then rest." — Tolstoy</p>
                 </div>
-                <button @click="zenOpen = false" class="text-sm text-gray-500 hover:text-gray-900">Close</button>
+                <div x-show="!drawerReduced" class="flex items-center gap-2">
+                    <button
+                        @click="drawerReduced = !drawerReduced"
+                        class="rounded-md px-3 py-1 text-xs text-gray-500 hover:bg-gray-100"
+                        x-text="drawerReduced ? 'Expand' : 'Reduce'"
+                    ></button>
+                    <button @click="zenOpen = false" class="rounded-md px-3 py-1 text-xs text-gray-500 hover:bg-gray-100">Close</button>
+                </div>
+
+                <div x-show="drawerReduced" class="w-full flex flex-col items-center gap-2 py-1">
+                    <button
+                        @click="drawerReduced = false"
+                        class="h-9 w-9 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        title="Expand"
+                    >↔</button>
+                    <button
+                        @click="drawerReduced = false; activeTab = 'history'; fetchSessions()"
+                        class="h-9 w-9 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                        title="Past sessions"
+                    >🕘</button>
+                    <button
+                        @click="zenOpen = false"
+                        class="h-9 w-9 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        title="Close"
+                    >✕</button>
+                </div>
             </div>
 
-            <div class="p-4 border-b border-gray-200 space-y-3">
-                <label class="text-sm font-medium text-gray-700">Section</label>
-                <select x-model="section" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                    <option value="general">General</option>
-                    <option value="task">Tasks</option>
-                    <option value="idea">Ideas</option>
-                    <option value="goal">Goals</option>
-                    <option value="review">Reviews</option>
-                </select>
+            <!-- Two-tab switcher: New Breakdown / History -->
+            <div x-show="!drawerReduced" class="flex border-b border-gray-200 text-sm font-medium">
+                <button
+                    @click="activeTab = 'form'"
+                    :class="activeTab === 'form' ? 'border-b-2 border-indigo-600 text-indigo-700' : 'text-gray-500 hover:text-gray-700'"
+                    class="flex-1 py-2.5 transition-colors"
+                >New Breakdown</button>
+                <button
+                    @click="activeTab = 'history'; fetchSessions()"
+                    :class="activeTab === 'history' ? 'border-b-2 border-indigo-600 text-indigo-700' : 'text-gray-500 hover:text-gray-700'"
+                    class="flex-1 py-2.5 transition-colors"
+                >History</button>
+            </div>
 
-                <div class="max-h-32 overflow-y-auto border border-gray-100 rounded-md p-2">
-                    <template x-for="session in sessions" :key="session.id">
-                        <button @click="loadSession(session.id)" class="w-full text-left text-sm px-2 py-1 rounded hover:bg-gray-100">
-                            <span x-text="session.title"></span>
+            <div x-show="!drawerReduced" class="px-5 py-2 border-b border-gray-100 bg-gray-50 text-[11px] text-gray-500">
+                Past sessions are in <span class="font-semibold">History</span> tab.
+            </div>
+
+            <!-- ── TAB: New Breakdown ── -->
+            <div x-show="!drawerReduced && activeTab === 'form'" class="flex flex-col flex-1 overflow-hidden">
+
+                <!-- Form area -->
+                <div class="overflow-y-auto p-5 space-y-3 border-b border-gray-100">
+
+                    <!-- Step 1: Goal or Idea selector -->
+                    <section class="rounded-xl border border-gray-200 bg-white">
+                        <button
+                            @click="accordion.subject = !accordion.subject"
+                            class="w-full px-4 py-3 flex items-center justify-between text-left"
+                        >
+                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">1 — What are you breaking down?</span>
+                            <span class="text-gray-400 text-xs" x-text="accordion.subject ? '−' : '+'"></span>
                         </button>
+
+                        <div x-show="accordion.subject" class="px-4 pb-4 space-y-2">
+                            <div class="flex gap-2 text-sm">
+                            <button
+                                @click="subjectType = 'goal'; subjectId = ''"
+                                :class="subjectType === 'goal' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                                class="rounded-full px-4 py-1.5 font-medium transition-colors"
+                            >🎯 Goal</button>
+                            <button
+                                @click="subjectType = 'idea'; subjectId = ''"
+                                :class="subjectType === 'idea' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                                class="rounded-full px-4 py-1.5 font-medium transition-colors"
+                            >💡 Idea</button>
+                        </div>
+
+                        <!-- Goal list -->
+                            <template x-if="subjectType === 'goal'">
+                                <div class="space-y-1 max-h-40 overflow-y-auto rounded-lg border border-gray-200 p-2">
+                                <template x-if="goals.length === 0">
+                                    <p class="text-xs text-gray-400 py-2 text-center">No active goals found. Create one first.</p>
+                                </template>
+                                <template x-for="g in goals" :key="g.id">
+                                    <button
+                                        @click="subjectId = g.id; subjectLabel = g.title"
+                                        :class="subjectId === g.id ? 'bg-indigo-50 border-indigo-300 text-indigo-800' : 'hover:bg-gray-50 border-transparent text-gray-700'"
+                                        class="w-full text-left rounded-md border px-3 py-2 text-sm transition-colors"
+                                    >
+                                        <span class="font-medium" x-text="g.title"></span>
+                                        <span class="ml-2 text-xs text-gray-400" x-text="g.term === 'S' ? 'Short-term' : 'Long-term'"></span>
+                                    </button>
+                                </template>
+                                </div>
+                            </template>
+
+                            <template x-if="subjectType === 'idea'">
+                                <div class="space-y-1 max-h-40 overflow-y-auto rounded-lg border border-gray-200 p-2">
+                                <template x-if="ideas.length === 0">
+                                    <p class="text-xs text-gray-400 py-2 text-center">No ideas found. Add one first.</p>
+                                </template>
+                                <template x-for="i in ideas" :key="i.id">
+                                    <button
+                                        @click="subjectId = i.id; subjectLabel = i.title"
+                                        :class="subjectId === i.id ? 'bg-indigo-50 border-indigo-300 text-indigo-800' : 'hover:bg-gray-50 border-transparent text-gray-700'"
+                                        class="w-full text-left rounded-md border px-3 py-2 text-sm transition-colors"
+                                    >
+                                        <span class="font-medium" x-text="i.title"></span>
+                                    </button>
+                                </template>
+                                </div>
+                            </template>
+                        </div>
+                    </section>
+
+                    <!-- Step 2: Date + Time slot picker -->
+                    <section class="rounded-xl border border-gray-200 bg-white">
+                        <button
+                            @click="accordion.slot = !accordion.slot"
+                            class="w-full px-4 py-3 flex items-center justify-between text-left"
+                        >
+                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">2 — When is your work session?</span>
+                            <span class="text-gray-400 text-xs" x-text="accordion.slot ? '−' : '+'"></span>
+                        </button>
+
+                        <div x-show="accordion.slot" class="px-4 pb-4 space-y-2">
+                            <input
+                            type="date"
+                            x-model="slotDate"
+                            @change="fetchCalendarTasks()"
+                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                            />
+                            <div class="flex gap-2">
+                            <div class="flex-1">
+                                <label class="block text-[11px] text-gray-500 mb-1">Start time</label>
+                                <input type="time" x-model="slotStart" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-[11px] text-gray-500 mb-1">End time</label>
+                                <input type="time" x-model="slotEnd" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+                            </div>
+                            </div>
+
+                            <p x-show="slotStart && slotEnd && slotDurationMins > 0" class="text-xs text-indigo-700 font-medium">
+                            ⏱ <span x-text="`${slotDurationMins} min session`"></span>
+                            </p>
+
+                            <template x-if="calendarTasks.length > 0">
+                                <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 space-y-1">
+                                <p class="text-[11px] font-semibold text-amber-700">Already scheduled on this day:</p>
+                                <template x-for="t in calendarTasks" :key="t.id">
+                                    <p class="text-[11px] text-amber-800">
+                                        <span :class="t.completed ? 'line-through opacity-60' : ''" x-text="t.title"></span>
+                                    </p>
+                                </template>
+                                </div>
+                            </template>
+                            <template x-if="slotDate && calendarTasks.length === 0">
+                                <p class="text-[11px] text-emerald-600">✓ No tasks yet on this day — slot is free.</p>
+                            </template>
+                        </div>
+                    </section>
+
+                    <!-- Step 3: Optional extra context -->
+                    <section class="rounded-xl border border-gray-200 bg-white">
+                        <button
+                            @click="accordion.notes = !accordion.notes"
+                            class="w-full px-4 py-3 flex items-center justify-between text-left"
+                        >
+                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">3 — Extra context (optional)</span>
+                            <span class="text-gray-400 text-xs" x-text="accordion.notes ? '−' : '+'"></span>
+                        </button>
+
+                        <div x-show="accordion.notes" class="px-4 pb-4">
+                            <textarea
+                            x-model="extraNotes"
+                            rows="2"
+                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+                            placeholder="e.g. I only have low energy today, keep tasks short…"
+                            ></textarea>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Submit -->
+                <div class="px-5 py-4 border-t border-gray-100 bg-white">
+                    <p class="text-xs mb-2" :class="chatStatusType === 'error' ? 'text-red-600' : 'text-indigo-600'" x-show="chatStatus" x-text="chatStatus"></p>
+                    <button
+                        @click="sendBreakdown()"
+                        :disabled="loading || !subjectId || !slotDate"
+                        class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+                    >
+                        <span x-show="!loading">Break it down ✦</span>
+                        <span x-show="loading">Thinking…</span>
+                    </button>
+                    <p x-show="!subjectId" class="mt-1 text-center text-[11px] text-gray-400">Select a goal or idea above to continue.</p>
+                    <p x-show="subjectId && !slotDate" class="mt-1 text-center text-[11px] text-gray-400">Pick a date for your session.</p>
+                </div>
+
+                <!-- Results -->
+                <div id="zenai-messages" class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3">
+                    <template x-if="messages.length === 0">
+                        <p class="text-center text-xs text-gray-400 pt-8">Your breakdown will appear here.</p>
+                    </template>
+
+                    <template x-for="(item, idx) in messages" :key="idx">
+                        <article
+                            class="rounded-xl p-4 text-sm shadow-sm space-y-3"
+                            :class="item.role === 'user'
+                                ? 'ml-8 bg-indigo-50 border border-indigo-100 text-indigo-900'
+                                : 'bg-white border border-gray-200 text-gray-800'"
+                        >
+                            <header class="flex items-center gap-2">
+                                <span class="text-base" x-text="item.role === 'user' ? '🧠' : '✨'"></span>
+                                <p class="font-semibold text-xs uppercase tracking-wide" x-text="item.role === 'user' ? 'Your request' : 'ZenAI'"></p>
+                            </header>
+
+                            <!-- Response text -->
+                            <template x-if="item.content">
+                                <p class="whitespace-pre-line leading-relaxed" x-text="item.content"></p>
+                            </template>
+
+                            <!-- Focus target chip -->
+                            <template x-if="item.role !== 'user' && item.focus_target">
+                                <div class="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-800">
+                                    <span>🎯</span>
+                                    <span x-text="item.focus_target"></span>
+                                </div>
+                            </template>
+
+                            <!-- Clarifying questions -->
+                            <template x-if="item.role !== 'user' && item.clarifying_questions && item.clarifying_questions.length">
+                                <section class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 space-y-1">
+                                    <p class="text-[11px] font-semibold text-gray-500 uppercase">Questions to consider</p>
+                                    <template x-for="(q, qIdx) in item.clarifying_questions" :key="qIdx">
+                                        <p class="text-xs text-gray-600">• <span x-text="q"></span></p>
+                                    </template>
+                                </section>
+                            </template>
+
+                            <!-- Suggested task cards -->
+                            <template x-if="item.role !== 'user' && item.suggested_tasks && item.suggested_tasks.length">
+                                <section class="space-y-2">
+                                    <p class="text-[11px] font-semibold text-gray-500 uppercase">Tasks for this session</p>
+
+                                    <template x-for="(task, taskIdx) in item.suggested_tasks" :key="taskIdx">
+                                        <div class="rounded-xl border border-gray-200 bg-white p-3 space-y-2 shadow-sm">
+
+                                            <!-- Task title + time -->
+                                            <div class="flex items-start justify-between gap-2">
+                                                <p class="font-semibold text-gray-900 text-sm leading-snug" x-text="task.title"></p>
+                                                <span
+                                                    x-show="task.duration_minutes"
+                                                    class="shrink-0 rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[11px] text-indigo-700 font-medium"
+                                                    x-text="`${task.duration_minutes} min`"
+                                                ></span>
+                                            </div>
+
+                                            <!-- Why -->
+                                            <p class="text-xs text-gray-500 leading-snug" x-text="task.why"></p>
+
+                                            <!-- Time slot badge -->
+                                            <template x-if="task.slot_start && task.slot_end">
+                                                <div class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] text-emerald-700 font-medium">
+                                                    <span>🕐</span>
+                                                    <span x-text="`${task.slot_start} – ${task.slot_end}`"></span>
+                                                </div>
+                                            </template>
+
+                                            <!-- Meta chips -->
+                                            <div class="flex flex-wrap gap-1 text-[11px] text-gray-500">
+                                                <span class="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5" x-text="task.recommended_date || 'today'"></span>
+                                                <span class="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5" x-text="`${task.tag || 'W'} · ${task.priority || 'M'}`"></span>
+                                                <span x-show="task.cadence && task.cadence !== 'one-off'" class="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5" x-text="task.cadence"></span>
+                                                <span x-show="task.is_rest" class="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">Rest</span>
+                                                <span x-show="task.recurrence_type && task.recurrence_type !== 'none'" class="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-indigo-700" x-text="`Repeat: ${task.recurrence_type}`"></span>
+                                            </div>
+
+                                            <p x-show="task.frequency_detail" class="text-[11px] text-gray-400" x-text="task.frequency_detail"></p>
+
+                                            <!-- Add button -->
+                                            <button
+                                                @click="addSuggestedTask(task)"
+                                                :disabled="isTaskAdded(task) || addingTaskKey === taskKey(task)"
+                                                :class="isTaskAdded(task)
+                                                    ? 'bg-emerald-600 cursor-default'
+                                                    : 'bg-indigo-600 hover:bg-indigo-700'"
+                                                class="w-full rounded-lg py-1.5 text-xs font-semibold text-white transition-colors disabled:opacity-60"
+                                                x-text="isTaskAdded(task) ? '✓ Added to calendar' : (addingTaskKey === taskKey(task) ? 'Adding…' : 'Add to calendar')"
+                                            ></button>
+                                        </div>
+                                    </template>
+                                </section>
+                            </template>
+                        </article>
                     </template>
                 </div>
             </div>
 
-            <div id="zenai-messages" class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3">
-                <template x-for="(item, idx) in messages" :key="idx">
-                    <article
-                        class="rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap space-y-3 shadow-sm"
-                        :class="item.role === 'user' ? 'ml-10 bg-blue-100' : 'mr-10 bg-white border border-gray-200'"
-                    >
-                        <header>
-                            <p class="font-semibold" x-text="item.role === 'user' ? 'You' : 'ZenAI'"></p>
-                        </header>
-
-                        <template x-if="item.content">
-                            <section class="space-y-1">
-                                <p x-show="item.role !== 'user'" class="mb-1 text-xs font-semibold text-gray-700">Response</p>
-                                <p class="whitespace-pre-line" x-text="item.content"></p>
-                            </section>
-                        </template>
-
-                        <template x-if="item.role !== 'user' && item.focus_target">
-                            <section class="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-900">
-                                <span class="font-semibold">Focus target:</span>
-                                <span x-text="item.focus_target"></span>
-                            </section>
-                        </template>
-
-                        <template x-if="item.role !== 'user' && item.clarifying_questions && item.clarifying_questions.length">
-                            <section class="space-y-1">
-                                <p class="text-xs font-semibold text-gray-700">Clarifying questions</p>
-                                <div class="space-y-1">
-                                    <template x-for="(question, qIdx) in item.clarifying_questions" :key="qIdx">
-                                        <p class="text-xs text-gray-600">• <span x-text="question"></span></p>
-                                    </template>
-                                </div>
-                            </section>
-                        </template>
-
-                        <template x-if="item.role !== 'user' && item.suggested_tasks && item.suggested_tasks.length">
-                            <section class="space-y-2">
-                                <p class="text-xs font-semibold text-gray-700">Suggested tasks</p>
-
-                                <template x-for="(task, taskIdx) in item.suggested_tasks" :key="taskIdx">
-                                    <div class="space-y-2 rounded-md border border-gray-200 bg-gray-50 p-2">
-                                        <p class="text-xs font-semibold text-gray-800" x-text="task.title"></p>
-                                        <p class="text-xs text-gray-600" x-text="task.why"></p>
-
-                                        <div class="flex flex-wrap gap-1 text-[11px] text-gray-600">
-                                            <span class="rounded border border-gray-200 bg-white px-2 py-0.5" x-text="`Cadence: ${task.cadence || 'one-off'}`"></span>
-                                            <span class="rounded border border-gray-200 bg-white px-2 py-0.5" x-text="`Priority: ${task.priority || 'M'}`"></span>
-                                            <span class="rounded border border-gray-200 bg-white px-2 py-0.5" x-text="`Tag: ${task.tag || 'W'}`"></span>
-                                            <span class="rounded border border-gray-200 bg-white px-2 py-0.5" x-text="`Date: ${task.recommended_date || 'today'}`"></span>
-                                            <span class="rounded border border-gray-200 bg-white px-2 py-0.5" x-text="`${task.duration_minutes || 0} mins`"></span>
-                                        </div>
-
-                                        <p x-show="task.frequency_detail" class="text-[11px] text-gray-500" x-text="task.frequency_detail"></p>
-
-                                        <div class="flex gap-2">
-                                            <button
-                                                @click="addSuggestedTask(task)"
-                                                :disabled="isTaskAdded(task) || addingTaskKey === taskKey(task)"
-                                                :class="isTaskAdded(task) ? 'bg-emerald-600 cursor-default' : 'bg-primary-500 hover:bg-primary-600'"
-                                                class="rounded px-2 py-1 text-xs text-white disabled:opacity-70"
-                                                x-text="isTaskAdded(task) ? 'Added' : (addingTaskKey === taskKey(task) ? 'Adding...' : 'Add as task')"
-                                            ></button>
-                                        </div>
-                                    </div>
-                                </template>
-                            </section>
-                        </template>
-                    </article>
-                </template>
-            </div>
-
-            <div class="p-4 border-t border-gray-200">
-                <p class="text-xs mb-2" :class="chatStatusType === 'error' ? 'text-red-600' : 'text-gray-600'" x-text="chatStatus"></p>
-                <div class="flex gap-2">
-                    <textarea x-model="draft" rows="2" class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder="Ask ZenAI to optimize a task, idea, or plan..."></textarea>
-                    <button @click="sendMessage()" :disabled="loading" class="bg-primary-500 hover:bg-primary-600 text-white rounded-md px-4 py-2 text-sm disabled:opacity-50">
-                        <span x-show="!loading">Send</span>
-                        <span x-show="loading">...</span>
-                    </button>
+            <!-- ── TAB: History ── -->
+            <div x-show="!drawerReduced && activeTab === 'history'" class="flex flex-col flex-1 overflow-hidden">
+                <div class="flex-1 overflow-y-auto p-4 space-y-2">
+                    <template x-if="sessions.length === 0">
+                        <p class="text-center text-xs text-gray-400 pt-8">No past breakdowns yet.</p>
+                    </template>
+                    <template x-for="session in sessions" :key="session.id">
+                        <button
+                            @click="loadSession(session.id); activeTab = 'form'"
+                            class="w-full text-left rounded-xl border border-gray-200 bg-white px-4 py-3 hover:border-indigo-300 hover:bg-indigo-50 transition-colors space-y-0.5"
+                        >
+                            <p class="text-sm font-medium text-gray-800 truncate" x-text="session.title"></p>
+                            <p class="text-[11px] text-gray-400" x-text="session.section + ' · ' + new Date(session.updated_at).toLocaleDateString()"></p>
+                        </button>
+                    </template>
                 </div>
             </div>
         </div>
 
-        <div x-show="zenOpen" @click="zenOpen = false" class="fixed inset-0 bg-black/20 z-40"></div>
+        <div x-show="zenOpen" class="fixed inset-0 bg-black/10 z-40 pointer-events-none"></div>
     </div>
     {% else %}
     </main>
@@ -230,159 +450,237 @@
 
         function zenaiApp() {
             return {
+                // Drawer state
                 zenOpen: false,
-                loading: false,
-                draft: '',
-                section: 'general',
-                sessionId: null,
+                activeTab: 'form',
+                drawerReduced: false,
+                accordion: {
+                    subject: true,
+                    slot: true,
+                    notes: false,
+                },
+
+                // Form state
+                subjectType: 'goal',   // 'goal' | 'idea'
+                subjectId: '',
+                subjectLabel: '',
+                slotDate: '',
+                slotStart: '',
+                slotEnd: '',
+                extraNotes: '',
+
+                // Data
+                goals: [],
+                ideas: [],
+                calendarTasks: [],
                 sessions: [],
                 messages: [],
+                sessionId: null,
+
+                // UI state
+                loading: false,
                 chatStatus: '',
                 chatStatusType: 'info',
                 addedSuggestionKeys: {},
                 addingTaskKey: '',
+
+                // ── Computed ──────────────────────────────────────────
+                get slotDurationMins() {
+                    if (!this.slotStart || !this.slotEnd) return 0;
+                    const [sh, sm] = this.slotStart.split(':').map(Number);
+                    const [eh, em] = this.slotEnd.split(':').map(Number);
+                    const diff = (eh * 60 + em) - (sh * 60 + sm);
+                    return diff > 0 ? diff : 0;
+                },
+
+                // ── Helpers ───────────────────────────────────────────
                 taskKey(task) {
                     return `${task.title || ''}|${task.recommended_date || ''}|${task.cadence || ''}|${task.priority || ''}`;
+                },
+                isTaskAdded(task) {
+                    return !!this.addedSuggestionKeys[this.taskKey(task)];
                 },
                 safeParseJSON(raw) {
                     if (!raw || typeof raw !== 'string') return null;
                     const text = raw.trim();
                     if (!text.startsWith('{') || !text.endsWith('}')) return null;
-                    try {
-                        return JSON.parse(text);
-                    } catch (error) {
-                        return null;
-                    }
+                    try { return JSON.parse(text); } catch { return null; }
                 },
                 normalizeAssistantMessage(payload) {
-                    const parsedFromReply = this.safeParseJSON(payload.reply || payload.content || '');
-                    const source = parsedFromReply || payload;
-
+                    const parsed = this.safeParseJSON(payload.reply || payload.content || '');
+                    const src = parsed || payload;
                     return {
                         role: 'assistant',
-                        content: source.response_markdown || source.reply || payload.content || '',
-                        focus_target: source.focus_target || '',
-                        clarifying_questions: Array.isArray(source.clarifying_questions) ? source.clarifying_questions : [],
-                        suggested_tasks: Array.isArray(source.suggested_tasks) ? source.suggested_tasks : [],
+                        content: src.response_markdown || src.reply || payload.content || '',
+                        focus_target: src.focus_target || '',
+                        clarifying_questions: Array.isArray(src.clarifying_questions) ? src.clarifying_questions : [],
+                        suggested_tasks: Array.isArray(src.suggested_tasks) ? src.suggested_tasks : [],
                     };
                 },
-                isTaskAdded(task) {
-                    return !!this.addedSuggestionKeys[this.taskKey(task)];
+                scrollToBottom() {
+                    this.$nextTick(() => {
+                        const el = document.getElementById('zenai-messages');
+                        if (el) el.scrollTop = el.scrollHeight;
+                    });
                 },
-                scrollMessagesToBottom() {
-                    const container = document.getElementById('zenai-messages');
-                    if (container) {
-                        container.scrollTop = container.scrollHeight;
-                    }
-                },
+
+                // ── Lifecycle ─────────────────────────────────────────
                 toggleZenAI() {
                     this.zenOpen = !this.zenOpen;
                     if (this.zenOpen) {
-                        this.fetchSessions();
-                        this.$nextTick(() => this.scrollMessagesToBottom());
+                        this.fetchGoalsAndIdeas();
+                        this.slotDate = new Date().toISOString().slice(0, 10);
+                        this.fetchCalendarTasks();
                     }
+                },
+
+                // ── Data fetchers ─────────────────────────────────────
+                async fetchGoalsAndIdeas() {
+                    try {
+                        const [gRes, iRes] = await Promise.all([
+                            fetch('{% url "goals_list" %}?json=1'),
+                            fetch('{% url "ideas_board" %}?json=1'),
+                        ]);
+                        if (gRes.ok) {
+                            const gData = await gRes.json();
+                            if (gData.goals) this.goals = gData.goals;
+                        }
+                        if (iRes.ok) {
+                            const iData = await iRes.json();
+                            if (iData.ideas) this.ideas = iData.ideas;
+                        }
+                    } catch {}
+                },
+                async fetchCalendarTasks() {
+                    if (!this.slotDate) return;
+                    try {
+                        const res = await fetch(`{% url "zenai_calendar_tasks" %}?date=${this.slotDate}`);
+                        const data = await res.json();
+                        if (data.success) this.calendarTasks = data.tasks;
+                    } catch {}
                 },
                 async fetchSessions() {
-                    const response = await fetch('{% url "zenai_sessions" %}');
-                    const data = await response.json();
-                    if (data.success) {
-                        this.sessions = data.sessions;
-                    }
+                    try {
+                        const res = await fetch('{% url "zenai_sessions" %}');
+                        const data = await res.json();
+                        if (data.success) this.sessions = data.sessions;
+                    } catch {}
                 },
                 async loadSession(sessionId) {
-                    const response = await fetch(`/zenai/session/${sessionId}/`);
-                    const data = await response.json();
-                    if (data.success) {
-                        this.sessionId = data.session.id;
-                        this.section = data.session.section;
-                        this.messages = data.messages.map((message) => {
-                            if (message.role === 'assistant') {
-                                return this.normalizeAssistantMessage(message);
-                            }
-                            return message;
-                        });
-                        this.chatStatus = '';
-                        this.chatStatusType = 'info';
-                        this.$nextTick(() => this.scrollMessagesToBottom());
-                    }
+                    try {
+                        const res = await fetch(`/zenai/session/${sessionId}/`);
+                        const data = await res.json();
+                        if (data.success) {
+                            this.sessionId = data.session.id;
+                            this.messages = data.messages.map(m =>
+                                m.role === 'assistant' ? this.normalizeAssistantMessage(m) : m
+                            );
+                            this.chatStatus = '';
+                            this.scrollToBottom();
+                        }
+                    } catch {}
                 },
-                async sendMessage() {
-                    const message = this.draft.trim();
-                    if (!message || this.loading) return;
 
-                    this.messages.push({ role: 'user', content: message });
-                    this.draft = '';
+                // ── Main action ───────────────────────────────────────
+                async sendBreakdown() {
+                    if (!this.subjectId || !this.slotDate || this.loading) return;
+
+                    const label = this.subjectLabel || 'your goal';
+                    const slotSummary = this.slotStart && this.slotEnd
+                        ? ` · ${this.slotStart}–${this.slotEnd}`
+                        : '';
+                    this.messages.push({
+                        role: 'user',
+                        content: `Break down: ${label}\nDate: ${this.slotDate}${slotSummary}`,
+                    });
                     this.loading = true;
+                    this.chatStatus = '';
+                    this.scrollToBottom();
+
+                    const body = {
+                        section: this.subjectType,
+                        slot_date: this.slotDate,
+                        slot_start: this.slotStart,
+                        slot_end: this.slotEnd,
+                        notes: this.extraNotes,
+                        session_id: this.sessionId || null,
+                    };
+                    if (this.subjectType === 'goal') body.goal_id = this.subjectId;
+                    else body.idea_id = this.subjectId;
 
                     try {
-                        const response = await fetch('{% url "zenai_send_message" %}', {
+                        const res = await fetch('{% url "zenai_send_message" %}', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'X-CSRFToken': getCookie('csrftoken') || ''
+                                'X-CSRFToken': getCookie('csrftoken') || '',
                             },
-                            body: JSON.stringify({
-                                message,
-                                section: this.section,
-                                session_id: this.sessionId
-                            })
+                            body: JSON.stringify(body),
                         });
-                        const data = await response.json();
+                        const data = await res.json();
                         if (data.success) {
                             this.sessionId = data.session_id;
                             this.messages.push(this.normalizeAssistantMessage(data));
                             this.fetchSessions();
-                            this.chatStatus = '';
-                            this.chatStatusType = 'info';
-                            this.$nextTick(() => this.scrollMessagesToBottom());
                         } else {
-                            this.messages.push({ role: 'assistant', content: data.error || 'Could not process request.' });
+                            this.chatStatus = data.error || 'Something went wrong.';
                             this.chatStatusType = 'error';
+                            this.messages.push({ role: 'assistant', content: data.error || 'Could not process request.' });
                         }
-                    } catch (error) {
-                        this.messages.push({ role: 'assistant', content: 'ZenAI is unavailable right now. Please try again.' });
+                    } catch {
+                        this.chatStatus = 'ZenAI is unavailable right now.';
                         this.chatStatusType = 'error';
+                        this.messages.push({ role: 'assistant', content: 'ZenAI is unavailable right now. Please try again.' });
                     } finally {
                         this.loading = false;
+                        this.scrollToBottom();
                     }
                 },
+
+                // ── Add task ──────────────────────────────────────────
                 async addSuggestedTask(task) {
                     const key = this.taskKey(task);
-                    if (this.isTaskAdded(task)) {
-                        this.chatStatus = 'This suggestion is already added.';
-                        this.chatStatusType = 'info';
-                        return;
-                    }
+                    if (this.isTaskAdded(task)) return;
 
                     this.addingTaskKey = key;
-                    this.chatStatus = 'Adding task...';
+                    this.chatStatus = 'Adding to calendar…';
                     this.chatStatusType = 'info';
+
+                    // Attach the selected slot if the task doesn't already have one
+                    const enrichedTask = {
+                        ...task,
+                        recommended_date: task.recommended_date || this.slotDate,
+                        slot_date: this.slotDate,
+                        slot_start: task.slot_start || this.slotStart,
+                        slot_end:   task.slot_end   || this.slotEnd,
+                    };
+
                     try {
-                        const response = await fetch('{% url "zenai_add_suggested_task" %}', {
+                        const res = await fetch('{% url "zenai_add_suggested_task" %}', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'X-CSRFToken': getCookie('csrftoken') || ''
+                                'X-CSRFToken': getCookie('csrftoken') || '',
                             },
-                            body: JSON.stringify(task)
+                            body: JSON.stringify(enrichedTask),
                         });
-                        const data = await response.json();
-                        if (response.ok && data.success) {
+                        const data = await res.json();
+                        if (res.ok && data.success) {
                             this.addedSuggestionKeys[key] = data.task.id;
-                            this.chatStatus = `Added: ${data.task.title}`;
+                            this.chatStatus = `✓ Added: ${data.task.title}`;
                             this.chatStatusType = 'info';
                         } else {
-                            this.chatStatus = data.error || 'Could not add suggested task.';
+                            this.chatStatus = data.error || 'Could not add task.';
                             this.chatStatusType = 'error';
                         }
-                    } catch (error) {
+                    } catch {
                         this.chatStatus = 'Network error while adding task.';
                         this.chatStatusType = 'error';
                     } finally {
                         this.addingTaskKey = '';
                     }
-                }
-            }
+                },
+            };
         }
 
         // Toggle task completion
@@ -438,7 +736,9 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+                navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })
+                    .then((registration) => registration.update())
+                    .catch(() => {});
             });
         }
     </script>

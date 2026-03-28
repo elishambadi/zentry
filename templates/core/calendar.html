@@ -32,18 +32,17 @@
         </div>
         
         <!-- Calendar Body -->
-        {% for week in calendar %}
+        {% for week in calendar_cells %}
         <div class="grid grid-cols-7 border-b border-gray-200 last:border-b-0">
-            {% for day in week %}
-            <div class="min-h-24 p-2 border-r border-gray-200 last:border-r-0 hover:bg-gray-50 transition-colors">
-                {% if day %}
-                    {% with date=year|add:"-"|add:month|add:"-"|add:day|date:"Y-m-d" %}
-                    <a href="{% url 'daily_view' year month day %}" class="block h-full">
-                        <div class="text-sm {% if day == today.day and month == today.month and year == today.year %}font-bold text-primary-600{% else %}text-gray-900{% endif %}">
-                            {{ day }}
+            {% for cell in week %}
+            <div class="min-h-24 p-2 border-r border-gray-200 last:border-r-0 hover:bg-gray-50 transition-colors relative">
+                {% if cell.day %}
+                    <a href="{% url 'daily_view' year month cell.day %}" class="group block h-full">
+                        <div class="text-sm {% if cell.is_today %}font-bold text-primary-600{% else %}text-gray-900{% endif %}">
+                            {{ cell.day }}
                         </div>
-                        
-                        {% with task_info=task_data|lookup:date %}
+
+                        {% with task_info=cell.task_info %}
                         {% if task_info %}
                         <div class="mt-1">
                             <div class="text-xs text-gray-600">
@@ -55,14 +54,41 @@
                         </div>
                         {% endif %}
                         {% endwith %}
-                        
-                        {% if date|date:"Y-m-d" in journal_dates %}
+
+                        {% if cell.task_lines %}
+                        <div class="mt-1 space-y-1">
+                            {% for task in cell.task_lines|slice:":3" %}
+                            <div class="h-1.5 rounded-full {% if task.completed %}bg-gray-300{% else %}bg-primary-500{% endif %}"></div>
+                            {% endfor %}
+                            {% if cell.task_lines|length > 3 %}
+                            <div class="text-[10px] text-gray-400">+{{ cell.task_lines|length|add:"-3" }} more</div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if cell.task_lines %}
+                        <div class="pointer-events-none absolute left-1 right-1 top-7 z-20 hidden group-hover:block rounded-md border border-gray-200 bg-white/95 p-2 shadow-lg backdrop-blur-sm">
+                            <p class="text-[10px] font-semibold text-gray-600 mb-1">Tasks for {{ month_name }} {{ cell.day }}</p>
+                            <div class="space-y-1">
+                                {% for task in cell.task_lines|slice:":6" %}
+                                <div class="flex items-start justify-between gap-2 text-[10px]">
+                                    <span class="truncate {% if task.completed %}line-through text-gray-400{% else %}text-gray-700{% endif %}">{{ task.title }}</span>
+                                    <span class="shrink-0 text-gray-400">{{ task.tag }} · {{ task.priority }}</span>
+                                </div>
+                                {% endfor %}
+                                {% if cell.task_lines|length > 6 %}
+                                <p class="text-[10px] text-gray-400">+{{ cell.task_lines|length|add:"-6" }} more</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if cell.has_journal %}
                         <div class="mt-1">
                             <span class="inline-block w-2 h-2 bg-green-400 rounded-full"></span>
                         </div>
                         {% endif %}
                     </a>
-                    {% endwith %}
                 {% endif %}
             </div>
             {% endfor %}

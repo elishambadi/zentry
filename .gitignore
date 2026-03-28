@@ -6,3 +6,5 @@ staticfiles
 __pycache__/
 ./core/__pycache__/
 *.pyc
+
+.vscode

@@ -39,6 +39,26 @@
                     <p class="text-red-500 text-sm mt-1">{{ form.date.errors.0 }}</p>
                 {% endif %}
             </div>
+
+            <div class="flex items-center gap-2">
+                {{ form.is_rest }}
+                <label class="text-sm text-gray-700">Rest task</label>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Recurrence</label>
+                {{ form.recurrence_type }}
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Custom weekdays</label>
+                <div class="text-sm">{{ form.recurrence_days }}</div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Recurrence end date</label>
+                {{ form.recurrence_end_date }}
+            </div>
             
             <div class="flex space-x-4">
                 <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-md">

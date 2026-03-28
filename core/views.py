@@ -41,6 +41,63 @@ def get_or_create_user_preferences(user):
     return preferences
 
 
+def ensure_goal_celebration_task(goal):
+    if not goal.target_date:
+        return
+
+    celebration_title = f"Celebrate end of goal: {goal.title}"
+    task = Task.objects.filter(
+        user=goal.user,
+        title=celebration_title,
+        tag='B',
+        is_rest=True,
+    ).first()
+
+    if task:
+        task.date = goal.target_date
+        task.priority = 'M'
+        task.save(update_fields=['date', 'priority'])
+        return
+
+    Task.objects.create(
+        user=goal.user,
+        date=goal.target_date,
+        title=celebration_title,
+        tag='B',
+        priority='M',
+        is_rest=True,
+    )
+
+
+def ensure_recurring_tasks_for_date(user, selected_date):
+    templates = Task.objects.filter(
+        user=user,
+        is_recurring_template=True,
+    ).exclude(recurrence_type='none')
+
+    for template in templates:
+        if not template.recurs_on(selected_date):
+            continue
+
+        already_exists = Task.objects.filter(
+            user=user,
+            date=selected_date,
+            recurrence_source=template,
+        ).exists()
+        if already_exists:
+            continue
+
+        Task.objects.create(
+            user=user,
+            date=selected_date,
+            title=template.title,
+            tag=template.tag,
+            priority=template.priority,
+            is_rest=template.is_rest,
+            recurrence_source=template,
+        )
+
+
 def build_zen_context(user, section):
     today = date.today()
     start_week = today - timedelta(days=today.weekday())
@@ -159,9 +216,15 @@ def normalize_suggested_tasks(items):
             'title': title[:200],
             'why': (item.get('why') or '').strip(),
             'duration_minutes': int(item.get('duration_minutes') or 0) if str(item.get('duration_minutes') or '').isdigit() else 0,
+            'is_rest': bool(item.get('is_rest', False)),
             'cadence': cadence if cadence in {'daily', 'weekly', 'monthly', 'one-off'} else 'one-off',
             'frequency_detail': (item.get('frequency_detail') or '').strip(),
             'recommended_date': (item.get('recommended_date') or '').strip(),
+            'slot_start': (item.get('slot_start') or '').strip(),
+            'slot_end': (item.get('slot_end') or '').strip(),
+            'recurrence_type': (item.get('recurrence_type') or 'none').strip(),
+            'recurrence_days': (item.get('recurrence_days') or '').strip(),
+            'recurrence_end_date': (item.get('recurrence_end_date') or '').strip(),
             'tag': tag if tag in valid_tags else 'W',
             'priority': priority if priority in valid_priorities else 'M',
             'note': (item.get('note') or '').strip(),
@@ -186,23 +249,35 @@ def build_fallback_zen_payload(context_data):
                 'title': 'Define one weekly outcome with metric',
                 'why': 'Prevents focus drift and narrows decisions.',
                 'duration_minutes': 20,
+                'is_rest': False,
                 'cadence': 'one-off',
                 'frequency_detail': 'Today, once',
                 'recommended_date': date.today().isoformat(),
+                'slot_start': '',
+                'slot_end': '',
+                'recurrence_type': 'none',
+                'recurrence_days': '',
+                'recurrence_end_date': '',
                 'tag': 'W',
                 'priority': 'H',
                 'note': 'Write: outcome, metric, deadline, and owner.',
             },
             {
-                'title': 'Schedule two deep-work blocks',
-                'why': 'Protects execution time for highest-value work.',
-                'duration_minutes': 90,
-                'cadence': 'weekly',
-                'frequency_detail': '2 sessions/week',
+                'title': 'Take a deliberate recovery block',
+                'why': 'Rest protects consistency and prevents burnout.',
+                'duration_minutes': 20,
+                'is_rest': True,
+                'cadence': 'daily',
+                'frequency_detail': 'One short wind-down block/day',
                 'recommended_date': date.today().isoformat(),
-                'tag': 'W',
-                'priority': 'H',
-                'note': 'No meetings, no notifications.',
+                'slot_start': '',
+                'slot_end': '',
+                'recurrence_type': 'daily',
+                'recurrence_days': '',
+                'recurrence_end_date': '',
+                'tag': 'B',
+                'priority': 'M',
+                'note': 'Walk, stretch, breathe, no screens.',
             },
         ],
     }
@@ -301,9 +376,32 @@ def build_no_work_zen_payload(missing_tasks, missing_goals):
 
 
 def generate_zenai_reply(user_prompt, context_data, history):
+    slot_date   = context_data.get('slot_date', '')
+    slot_start  = context_data.get('slot_start', '')
+    slot_end    = context_data.get('slot_end', '')
+    slot_hint   = ''
+    if slot_date:
+        slot_hint = f"The user has allocated time on {slot_date}"
+        if slot_start and slot_end:
+            slot_hint += f" from {slot_start} to {slot_end}"
+        slot_hint += ". ALL suggested tasks MUST fit inside this window and use this date as recommended_date."
+
     prompt = (
-        "You are ZenAI, an elite personal strategy assistant for productivity, planning, execution, and reflective thinking. "
-        "You must converge, not fan out: narrow to the most important target and produce specific next actions. "
+        "You are ZenAI — a focused goal-breakdown assistant. "
+        "Your only job is to take ONE goal or idea and break it into the smallest concrete daily actions that move it forward. "
+        "Philosophy (encode this into every response): "
+        "'A man on a thousand mile walk has to forget his goal and say to himself every morning: "
+        "Today I am going to cover twenty-five miles and then rest up and sleep.' — Leo Tolstoy. "
+        "This means: ignore the overwhelming whole. Surface the exact 25-mile segment the user can walk TODAY or in their available time slot. "
+        "Rules you must obey: "
+        "1. Never produce generic advice. Every task must be a direct sub-step of the provided goal or idea. "
+        "2. Fit all suggested tasks inside the user's stated time slot; sum of duration_minutes must not exceed the slot duration. "
+        "3. If no time slot is given, default to 60-minute total effort. "
+        "4. Order tasks by execution sequence, not importance. "
+        "5. Provide a 'focus_target' that is a single, measurable outcome for this session only — not the whole goal. "
+        "6. Clarifying questions should help narrow scope if the goal is too broad. "
+        "7. Always include both ACTION tasks and REST/RECOVERY blocks when appropriate to avoid burnout. "
+        f"{slot_hint} "
         "Return ONLY valid JSON with this exact schema: "
         "{"
         "\"focus_target\": string,"
@@ -314,17 +412,21 @@ def generate_zenai_reply(user_prompt, context_data, history):
         "\"title\": string,"
         "\"why\": string,"
         "\"duration_minutes\": number,"
+        "\"is_rest\": boolean,"
         "\"cadence\": \"daily\"|\"weekly\"|\"monthly\"|\"one-off\","
         "\"frequency_detail\": string,"
-        "\"recommended_date\": string,"
+        "\"recommended_date\": string (YYYY-MM-DD),"
+        "\"slot_start\": string (HH:MM, the start time for this task within the slot),"
+        "\"slot_end\": string (HH:MM, the end time for this task within the slot),"
+        "\"recurrence_type\": \"none\"|\"daily\"|\"weekly\"|\"custom\","
+        "\"recurrence_days\": string (comma-separated weekday numbers 0-6 when recurrence_type is custom),"
+        "\"recurrence_end_date\": string (YYYY-MM-DD or empty),"
         "\"tag\": \"P\"|\"S\"|\"W\"|\"R\"|\"B\","
         "\"priority\": \"L\"|\"M\"|\"H\"|\"U\","
         "\"note\": string"
         "}"
         "]"
-        "}. "
-        "For skill plans (e.g., chess), include exact time controls, named master games, explicit checkpoints and timeframes in tasks. "
-        "Keep suggestions concrete and directly executable."
+        "}"
     )
 
     api_key = config('ANTHROPIC_API_KEY', default='').strip()
@@ -352,8 +454,8 @@ def generate_zenai_reply(user_prompt, context_data, history):
                     'clarifying_questions': parsed.get('clarifying_questions') or [],
                     'suggested_tasks': normalize_suggested_tasks(parsed.get('suggested_tasks') or []),
                 }
-
-    return build_fallback_zen_payload(context_data)
+    else:
+        return build_fallback_zen_payload(context_data)
 
 def home(request):
     if request.user.is_authenticated:
@@ -429,31 +531,75 @@ def zenai_panel(request):
 @require_POST
 def zenai_send_message(request):
     payload = json.loads(request.body or '{}')
-    user_message = (payload.get('message') or '').strip()
-    section = (payload.get('section') or 'general').strip()
+    section   = (payload.get('section') or 'goal').strip()
     session_id = payload.get('session_id')
 
-    if not user_message:
-        return JsonResponse({'success': False, 'error': 'Message is required.'}, status=400)
+    # Goal or idea being broken down
+    goal_id  = payload.get('goal_id')
+    idea_id  = payload.get('idea_id')
+    # Time slot the user allocated
+    slot_date  = (payload.get('slot_date') or '').strip()
+    slot_start = (payload.get('slot_start') or '').strip()
+    slot_end   = (payload.get('slot_end') or '').strip()
+    extra_notes = (payload.get('notes') or '').strip()
+
+    # Resolve the subject (goal or idea)
+    subject_title = ''
+    subject_description = ''
+    if goal_id:
+        try:
+            goal_obj = Goal.objects.get(id=goal_id, user=request.user)
+            subject_title = goal_obj.title
+            subject_description = goal_obj.description
+            section = 'goal'
+        except Goal.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Goal not found.'}, status=404)
+    elif idea_id:
+        try:
+            idea_obj = Idea.objects.get(id=idea_id, user=request.user)
+            subject_title = idea_obj.title
+            subject_description = idea_obj.description
+            section = 'idea'
+        except Idea.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Idea not found.'}, status=404)
+    else:
+        return JsonResponse({'success': False, 'error': 'Please select a goal or idea to break down.'}, status=400)
+
+    # Build the user message from subject + time slot + extra notes
+    slot_description = ''
+    if slot_date:
+        slot_description = f" | Time slot: {slot_date}"
+        if slot_start and slot_end:
+            slot_description += f" {slot_start}–{slot_end}"
+    user_message = f"Break down: {subject_title}"
+    if subject_description:
+        user_message += f"\n{subject_description}"
+    user_message += slot_description
+    if extra_notes:
+        user_message += f"\nExtra context: {extra_notes}"
 
     if session_id:
         session = get_object_or_404(ZenChatSession, id=session_id, user=request.user)
     else:
         session = ZenChatSession.objects.create(
             user=request.user,
-            section=section if section in dict(ZenChatSession.SECTION_CHOICES) else 'general',
-            title=user_message[:120],
+            section=section if section in dict(ZenChatSession.SECTION_CHOICES) else 'goal',
+            title=subject_title[:120],
         )
 
-    context_data = build_zen_context(request.user, session.section)
+    context_data = build_zen_context(request.user, section)
+    # Inject slot info into context so generate_zenai_reply can reference it
+    context_data['slot_date']  = slot_date
+    context_data['slot_start'] = slot_start
+    context_data['slot_end']   = slot_end
+    context_data['subject_title'] = subject_title
+    context_data['subject_description'] = subject_description
+
     existing_messages = session.messages.values('role', 'content')
     history = list(existing_messages)
 
-    has_any_tasks = Task.objects.filter(user=request.user).exists()
     has_active_goals = Goal.objects.filter(user=request.user, completed=False).exists()
-
-    has_any_tasks = Task.objects.filter(user=request.user).exists()
-    has_active_goals = Goal.objects.filter(user=request.user, completed=False).exists()
+    has_any_ideas    = Idea.objects.filter(user=request.user).exists()
 
     ZenChatMessage.objects.create(
         session=session,
@@ -462,19 +608,14 @@ def zenai_send_message(request):
         context_snapshot=context_data,
     )
 
-    if not has_any_tasks or not has_active_goals:
+    if not has_active_goals and not has_any_ideas:
         assistant_payload = build_no_work_zen_payload(
-            missing_tasks=not has_any_tasks,
-            missing_goals=not has_active_goals,
+            missing_tasks=False,
+            missing_goals=True,
         )
     else:
-        if not has_any_tasks or not has_active_goals:
-            assistant_payload = build_setup_required_payload(
-                missing_tasks=not has_any_tasks,
-                missing_goals=not has_active_goals,
-            )
-        else:
-            assistant_payload = generate_zenai_reply(user_message, context_data, history)
+        assistant_payload = generate_zenai_reply(user_message, context_data, history)
+
     assistant_reply = assistant_payload.get('response_markdown') or 'I could not generate a response.'
 
     ZenChatMessage.objects.create(
@@ -512,7 +653,7 @@ def zenai_add_suggested_task(request):
     if not title:
         return JsonResponse({'success': False, 'error': 'Task title is required.'}, status=400)
 
-    recommended_date = (payload.get('recommended_date') or '').strip()
+    recommended_date = (payload.get('recommended_date') or payload.get('slot_date') or '').strip()
     task_date = date.today()
     if recommended_date:
         try:
@@ -520,20 +661,63 @@ def zenai_add_suggested_task(request):
         except ValueError:
             task_date = date.today()
 
+    slot_start = (payload.get('slot_start') or '').strip()
+    slot_end   = (payload.get('slot_end') or '').strip()
+    is_rest = bool(payload.get('is_rest', False))
+    recurrence_type = (payload.get('recurrence_type') or 'none').strip().lower()
+    recurrence_days = (payload.get('recurrence_days') or '').strip()
+    recurrence_end_date_raw = (payload.get('recurrence_end_date') or '').strip()
+
+    if recurrence_type not in {'none', 'daily', 'weekly', 'custom'}:
+        recurrence_type = 'none'
+
+    recurrence_end_date = None
+    if recurrence_end_date_raw:
+        try:
+            recurrence_end_date = datetime.strptime(recurrence_end_date_raw, '%Y-%m-%d').date()
+        except ValueError:
+            recurrence_end_date = None
+
     valid_tags = {choice[0] for choice in Task.TAGS}
     valid_priorities = {choice[0] for choice in Task.PRIORITY_CHOICES}
     tag = (payload.get('tag') or 'W').strip().upper()
     priority = (payload.get('priority') or 'M').strip().upper()
 
-    task = Task.objects.create(
-        user=request.user,
-        title=title[:200],
-        date=task_date,
-        tag=tag if tag in valid_tags else 'W',
-        priority=priority if priority in valid_priorities else 'M',
-    )
+    if recurrence_type != 'none':
+        template_task = Task.objects.create(
+            user=request.user,
+            title=title[:200],
+            date=task_date,
+            tag=tag if tag in valid_tags else 'W',
+            priority=priority if priority in valid_priorities else 'M',
+            is_rest=is_rest,
+            recurrence_type=recurrence_type,
+            recurrence_days=recurrence_days if recurrence_type == 'custom' else '',
+            recurrence_end_date=recurrence_end_date,
+            is_recurring_template=True,
+        )
+        task = Task.objects.create(
+            user=request.user,
+            title=title[:200],
+            date=task_date,
+            tag=tag if tag in valid_tags else 'W',
+            priority=priority if priority in valid_priorities else 'M',
+            is_rest=is_rest,
+            recurrence_source=template_task,
+        )
+    else:
+        task = Task.objects.create(
+            user=request.user,
+            title=title[:200],
+            date=task_date,
+            tag=tag if tag in valid_tags else 'W',
+            priority=priority if priority in valid_priorities else 'M',
+            is_rest=is_rest,
+        )
 
     note_parts = []
+    if slot_start and slot_end:
+        note_parts.append(f"Time slot: {slot_start}–{slot_end}")
     for label, key in [
         ('Why', 'why'),
         ('Cadence', 'cadence'),
@@ -603,6 +787,25 @@ def zenai_sessions(request):
     })
 
 
+@login_required
+def zenai_calendar_tasks(request):
+    """Return tasks for a given date so the time-slot picker can show busy blocks."""
+    date_str = request.GET.get('date', '')
+    try:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        target_date = date.today()
+
+    tasks = Task.objects.filter(user=request.user, date=target_date).values(
+        'id', 'title', 'tag', 'priority', 'completed'
+    )
+    return JsonResponse({
+        'success': True,
+        'date': target_date.isoformat(),
+        'tasks': list(tasks),
+    })
+
+
 def pwa_manifest(request):
     return render(request, 'manifest.json', content_type='application/manifest+json')
 
@@ -614,6 +817,8 @@ def service_worker(request):
 @login_required
 def daily_view(request, year, month, day):
     selected_date = date(year, month, day)
+
+    ensure_recurring_tasks_for_date(request.user, selected_date)
     
     # Get or create journal entry for the day
     journal_entry, created = JournalEntry.objects.get_or_create(
@@ -656,7 +861,22 @@ def daily_view(request, year, month, day):
             task = task_form.save(commit=False)
             task.user = request.user
             task.date = selected_date
-            task.save()
+
+            if task.recurrence_type != 'none':
+                task.is_recurring_template = True
+                task.save()
+                Task.objects.create(
+                    user=request.user,
+                    date=selected_date,
+                    title=task.title,
+                    tag=task.tag,
+                    priority=task.priority,
+                    is_rest=task.is_rest,
+                    recurrence_source=task,
+                )
+            else:
+                task.save()
+
             messages.success(request, 'Task added successfully!')
             return redirect('daily_view', year=year, month=month, day=day)
     else:
@@ -665,7 +885,8 @@ def daily_view(request, year, month, day):
     # Get tasks for the day with related data
     tasks = Task.objects.filter(
         user=request.user, 
-        date=selected_date
+        date=selected_date,
+        is_recurring_template=False,
     ).prefetch_related('subtasks', 'notes', 'links', 'task_goals__goal')
     
     # Get carried over tasks from previous day
@@ -733,15 +954,49 @@ def calendar_view(request):
         total=Count('id'),
         completed=Count('id', filter=Q(completed=True))
     )
+
+    task_rows = Task.objects.filter(
+        user=request.user,
+        date__range=[start_date, end_date]
+    ).values('date', 'title', 'completed', 'tag', 'priority').order_by('date', 'created_at')
     
     journals = JournalEntry.objects.filter(
         user=request.user,
         date__range=[start_date, end_date]
     ).values_list('date', flat=True)
     
-    # Create lookup dictionaries
-    task_data = {item['date']: item for item in tasks}
+    # Create lookup dictionaries with ISO date keys for safe template lookup
+    task_data = {item['date'].isoformat(): item for item in tasks}
+    task_lines = {}
+    for item in task_rows:
+        key = item['date'].isoformat()
+        task_lines.setdefault(key, []).append({
+            'title': item['title'],
+            'completed': item['completed'],
+            'tag': item['tag'],
+            'priority': item['priority'],
+        })
     journal_dates = set(journals)
+
+    calendar_cells = []
+    for week in cal:
+        week_cells = []
+        for day in week:
+            if day == 0:
+                week_cells.append({'day': 0})
+                continue
+
+            day_date = date(year, month, day)
+            day_key = day_date.isoformat()
+            week_cells.append({
+                'day': day,
+                'day_key': day_key,
+                'is_today': day_date == today,
+                'task_info': task_data.get(day_key),
+                'task_lines': task_lines.get(day_key, []),
+                'has_journal': day_date in journal_dates,
+            })
+        calendar_cells.append(week_cells)
     
     # Navigation
     prev_month = month - 1 if month > 1 else 12
@@ -751,10 +1006,12 @@ def calendar_view(request):
     
     context = {
         'calendar': cal,
+        'calendar_cells': calendar_cells,
         'year': year,
         'month': month,
         'month_name': month_name,
         'task_data': task_data,
+        'task_lines': task_lines,
         'journal_dates': journal_dates,
         'today': today,
         'prev_month': prev_month,
@@ -1062,10 +1319,23 @@ def ideas_board(request):
             return redirect('ideas_board')
     else:
         form = IdeaForm()
-    
+
     ideas = Idea.objects.filter(user=request.user, converted_to_task=False)
     converted_ideas = Idea.objects.filter(user=request.user, converted_to_task=True).select_related('task')
-    
+
+    # JSON API for ZenAI drawer
+    if request.GET.get('json') == '1':
+        return JsonResponse({
+            'ideas': [
+                {
+                    'id': i.id,
+                    'title': i.title,
+                    'description': i.description,
+                }
+                for i in ideas
+            ]
+        })
+
     context = {
         'form': form,
         'ideas': ideas,
@@ -1118,20 +1388,37 @@ def delete_idea(request, idea_id):
 @login_required
 def goals_list(request):
     if request.method == 'POST':
-        form = GoalForm(request.POST)
+        form = GoalForm(request.POST, request.FILES)
         if form.is_valid():
             goal = form.save(commit=False)
             goal.user = request.user
             goal.save()
+            ensure_goal_celebration_task(goal)
             messages.success(request, 'Goal added successfully!')
             return redirect('goals_list')
     else:
         form = GoalForm()
-    
+
     short_term_goals = Goal.objects.filter(user=request.user, term='S', completed=False)
-    long_term_goals = Goal.objects.filter(user=request.user, term='L', completed=False)
-    completed_goals = Goal.objects.filter(user=request.user, completed=True)
-    
+    long_term_goals  = Goal.objects.filter(user=request.user, term='L', completed=False)
+    completed_goals  = Goal.objects.filter(user=request.user, completed=True)
+
+    # JSON API for ZenAI drawer
+    if request.GET.get('json') == '1':
+        active_goals = list(short_term_goals) + list(long_term_goals)
+        return JsonResponse({
+            'goals': [
+                {
+                    'id': g.id,
+                    'title': g.title,
+                    'description': g.description,
+                    'term': g.term,
+                    'target_date': g.target_date.isoformat() if g.target_date else None,
+                }
+                for g in active_goals
+            ]
+        })
+
     context = {
         'form': form,
         'short_term_goals': short_term_goals,
@@ -1139,6 +1426,23 @@ def goals_list(request):
         'completed_goals': completed_goals,
     }
     return render(request, 'core/goals_list.html', context)
+
+
+@login_required
+def edit_goal(request, goal_id):
+    goal = get_object_or_404(Goal, id=goal_id, user=request.user)
+
+    if request.method == 'POST':
+        form = GoalForm(request.POST, request.FILES, instance=goal)
+        if form.is_valid():
+            updated_goal = form.save()
+            ensure_goal_celebration_task(updated_goal)
+            messages.success(request, 'Goal updated successfully!')
+            return redirect('goals_list')
+    else:
+        form = GoalForm(instance=goal)
+
+    return render(request, 'core/edit_goal.html', {'form': form, 'goal': goal})
 
 
 @login_required
@@ -1154,6 +1458,12 @@ def toggle_goal(request, goal_id):
 @require_POST
 def delete_goal(request, goal_id):
     goal = get_object_or_404(Goal, id=goal_id, user=request.user)
+    Task.objects.filter(
+        user=request.user,
+        title=f"Celebrate end of goal: {goal.title}",
+        tag='B',
+        is_rest=True,
+    ).delete()
     goal.delete()
     return JsonResponse({'success': True})
 
