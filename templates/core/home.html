@@ -1,522 +1,79 @@
 {% extends 'base.html' %}
 
-{% block extra_head %}
-<!-- AOS Animation Library -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css" rel="stylesheet">
-<!-- Animate.css for additional animations -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
-<!-- Particles.js for background effects -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
-<!-- Typed.js for typing animations -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/typed.js/2.0.16/typed.umd.js"></script>
-<!-- CountUp.js for number animations -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/countup.js/2.8.0/countUp.umd.js"></script>
-<!-- GSAP for advanced animations -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-{% endblock %}
-
 {% block content %}
-<div class="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-100 via-blue-100 to-indigo-200">
-  <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(99,102,241,0.18),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(59,130,246,0.16),_transparent_30%)]"></div>
-  <!-- Particles.js Background -->
-  <div id="particles-js" class="absolute inset-0 z-0 pointer-events-none opacity-70"></div>
-  
-  <!-- Animated Background Elements with GSAP -->
-  <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-    <div class="floating-orb orb-1" data-aos="fade-up" data-aos-delay="100"></div>
-    <div class="floating-orb orb-2" data-aos="fade-down" data-aos-delay="300"></div>
-    <div class="floating-orb orb-3" data-aos="fade-left" data-aos-delay="500"></div>
-    <div class="floating-orb orb-4" data-aos="fade-right" data-aos-delay="700"></div>
-    <div class="floating-orb orb-5" data-aos="zoom-in" data-aos-delay="900"></div>
-  </div>
-
-  <!-- Main Content -->
-  <div class="relative z-10 min-h-screen flex items-center justify-center px-4 py-12">
-    <div class="max-w-lg w-full space-y-8 p-8 backdrop-blur-md bg-white/92 rounded-2xl shadow-2xl border border-white/60" 
-         data-aos="zoom-in" data-aos-duration="1000">
-      
-      <!-- Header Section -->
-      <div class="text-center space-y-6">
-        <div class="space-y-2">
-          <h1 class="text-5xl font-bold text-gray-900 tracking-tight animate__animated animate__fadeInDown">Zentry</h1>
-          <div class="text-xl text-gray-600 font-light">
-            <span id="typed-tagline"></span>
-          </div>
-        </div>
-        
-        <!-- Inspirational Quote -->
-        <div class="py-6" data-aos="fade-up" data-aos-delay="500">
-          <blockquote class="text-gray-700 italic text-center relative">
-            <div class="quote-content">
-              <p class="text-lg font-medium" id="quote-text">"The journey of a thousand miles begins with one step."</p>
-              <cite class="text-sm text-gray-500 mt-2 block" id="quote-author">— Lao Tzu</cite>
-            </div>
-          </blockquote>
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50">
+  <div class="mx-auto flex min-h-screen max-w-5xl items-center px-6 py-16">
+    <div class="grid w-full gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+      <section class="space-y-8">
+        <div class="space-y-4">
+          <p class="text-sm font-medium uppercase tracking-[0.24em] text-indigo-600">Minimal planning</p>
+          <h1 class="text-5xl font-semibold tracking-tight text-gray-900 sm:text-6xl">Zentry</h1>
+          <p class="max-w-2xl text-lg leading-8 text-gray-600">
+            A calm workspace for focused tasks, light reflection, and deliberate progress.
+          </p>
         </div>
 
-        <!-- Action Buttons -->
-        <div class="space-y-4" data-aos="fade-up" data-aos-delay="800">
-          
-          <a href="{% url 'account_login' %}" 
-             class="group w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-4 px-6 rounded-xl transition-all duration-300 block text-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 btn-primary">
-            <span class="inline-flex items-center">
-              Sign In
-              <svg class="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-              </svg>
-            </span>
+        <blockquote class="max-w-xl border-l-2 border-indigo-200 pl-4 text-gray-600">
+          <p class="text-base leading-7">
+            “The journey of a thousand miles begins with one step.”
+          </p>
+          <cite class="mt-2 block text-sm text-gray-400">— Lao Tzu</cite>
+        </blockquote>
+
+        <div class="flex flex-col gap-3 sm:flex-row">
+          <a
+            href="{% url 'account_login' %}"
+            class="inline-flex items-center justify-center rounded-xl bg-gray-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-black"
+          >
+            Sign In
           </a>
-          
-          <a href="{% url 'account_signup' %}" 
-             class="group w-full bg-white/90 hover:bg-white text-gray-800 font-medium py-4 px-6 rounded-xl transition-all duration-300 block text-center shadow-md hover:shadow-lg border border-gray-200 transform hover:-translate-y-0.5 btn-secondary">
-            <span class="inline-flex items-center">
-              Create Account
-              <svg class="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-              </svg>
-            </span>
+          <a
+            href="{% url 'account_signup' %}"
+            class="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
+          >
+            Create Account
           </a>
         </div>
-      </div>
 
-      <!-- Feature Highlights -->
-      <div class="mt-12 grid grid-cols-3 gap-4 text-center">
-        <div class="feature-card" data-aos="flip-left" data-aos-delay="1000">
-          <div class="w-8 h-8 mx-auto mb-2 text-blue-600">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-            </svg>
+        <div class="grid max-w-2xl gap-3 sm:grid-cols-3">
+          <div class="rounded-2xl border border-gray-200 bg-white p-4">
+            <p class="text-sm font-medium text-gray-900">Tasks</p>
+            <p class="mt-1 text-sm text-gray-500">Keep your day clear and actionable.</p>
           </div>
-          <p class="text-sm font-medium text-gray-800">Track Tasks</p>
-        </div>
-        
-        <div class="feature-card" data-aos="flip-left" data-aos-delay="1200">
-          <div class="w-8 h-8 mx-auto mb-2 text-indigo-600">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-            </svg>
+          <div class="rounded-2xl border border-gray-200 bg-white p-4">
+            <p class="text-sm font-medium text-gray-900">Journal</p>
+            <p class="mt-1 text-sm text-gray-500">Capture what matters without noise.</p>
           </div>
-          <p class="text-sm font-medium text-gray-800">Journal</p>
-        </div>
-        
-        <div class="feature-card" data-aos="flip-left" data-aos-delay="1400">
-          <div class="w-8 h-8 mx-auto mb-2 text-purple-600">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-            </svg>
+          <div class="rounded-2xl border border-gray-200 bg-white p-4">
+            <p class="text-sm font-medium text-gray-900">Progress</p>
+            <p class="mt-1 text-sm text-gray-500">Review momentum with less clutter.</p>
           </div>
-          <p class="text-sm font-medium text-gray-800">Progress</p>
         </div>
-      </div>
+      </section>
 
-      <!-- Bottom Text -->
-      <div class="mt-8 text-center" data-aos="fade-up" data-aos-delay="1600">
-        <p class="text-sm text-gray-600 leading-relaxed">
-          Streamline your productivity with intentional daily practices and meaningful progress tracking.
-        </p>
-      </div>
+      <aside class="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
+        <div class="space-y-6">
+          <div>
+            <p class="text-sm font-medium text-gray-900">What Zentry helps you do</p>
+            <ul class="mt-4 space-y-3 text-sm text-gray-600">
+              <li>• Focus on today’s work</li>
+              <li>• Break goals into practical steps</li>
+              <li>• Balance effort with recovery</li>
+              <li>• Reflect without overwhelming yourself</li>
+            </ul>
+          </div>
+
+          <div class="rounded-2xl bg-gray-50 p-4">
+            <p class="text-sm font-medium text-gray-900">Plain by design</p>
+            <p class="mt-2 text-sm leading-6 text-gray-600">
+              The interface stays quiet so your attention stays on the work, not the app.
+            </p>
+          </div>
+        </div>
+      </aside>
     </div>
-  </div>
-
-  <!-- Floating Productivity Stats -->
-  <div class="absolute top-8 right-8 z-10 hidden lg:block" data-aos="slide-left" data-aos-delay="2000">
-    <div class="bg-white/90 backdrop-blur-md rounded-lg p-4 shadow-lg border border-white/40 stat-card">
-      <div class="text-center">
-        <div class="text-2xl font-bold text-gray-800" id="counter1">0</div>
-        <div class="text-xs text-gray-600">Tasks Completed Today</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="absolute bottom-8 left-8 z-10 hidden lg:block" data-aos="slide-right" data-aos-delay="2200">
-    <div class="bg-white/90 backdrop-blur-md rounded-lg p-4 shadow-lg border border-white/40 stat-card">
-      <div class="text-center">
-        <div class="text-2xl font-bold text-indigo-600" id="counter2">0</div>
-        <div class="text-xs text-gray-600">Active Users</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Floating Action Button -->
-  <div class="fixed bottom-8 right-8 z-50" data-aos="zoom-in" data-aos-delay="3000">
-    <button class="fab bg-gradient-to-r from-purple-600 to-pink-600 text-white w-14 h-14 rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300 flex items-center justify-center">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-      </svg>
-    </button>
   </div>
 </div>
-
-<style>
-/* Enhanced Floating Orbs with GSAP animations */
-.floating-orb {
-  position: absolute;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.orb-1 {
-  width: 120px;
-  height: 120px;
-  top: 15%;
-  left: -60px;
-}
-
-.orb-2 {
-  width: 180px;
-  height: 180px;
-  top: 55%;
-  right: -90px;
-}
-
-.orb-3 {
-  width: 100px;
-  height: 100px;
-  top: 75%;
-  left: 15%;
-}
-
-.orb-4 {
-  width: 140px;
-  height: 140px;
-  top: 5%;
-  right: 25%;
-}
-
-.orb-5 {
-  width: 80px;
-  height: 80px;
-  top: 35%;
-  left: 5%;
-}
-
-/* Enhanced Feature Cards */
-.feature-card {
-  padding: 1.5rem;
-  border-radius: 1rem;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-}
-
-.feature-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-  transition: left 0.6s;
-}
-
-.feature-card:hover::before {
-  left: 100%;
-}
-
-.feature-card:hover {
-  background: rgba(255, 255, 255, 0.9);
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-}
-
-/* Enhanced Button Animations */
-.btn-primary, .btn-secondary {
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-primary::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.6s;
-}
-
-.btn-primary:hover::before {
-  left: 100%;
-}
-
-/* Stat Cards with enhanced effects */
-.stat-card {
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-}
-
-/* FAB Button */
-.fab {
-  position: relative;
-  overflow: hidden;
-}
-
-.fab::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  transition: width 0.6s, height 0.6s;
-}
-
-.fab:hover::before {
-  width: 200px;
-  height: 200px;
-}
-
-/* Particles.js customization */
-#particles-js {
-  z-index: 1;
-}
-
-#particles-js canvas {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-}
-
-/* Mobile Responsiveness */
-@media (max-width: 640px) {
-  .floating-orb {
-    display: none;
-  }
-  
-  .fab {
-    width: 48px;
-    height: 48px;
-  }
-  
-  .fab svg {
-    width: 20px;
-    height: 20px;
-  }
-}
-
-/* Custom scrollbar for webkit browsers */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.5);
-}
-</style>
-
-<script>
-// Counter Animation
-document.addEventListener('DOMContentLoaded', function() {
-  const counters = document.querySelectorAll('.counter');
-  
-  counters.forEach(counter => {
-    const target = parseInt(counter.dataset.target);
-    const increment = target / 100;
-    let current = 0;
-    
-    const updateCounter = () => {
-      if (current < target) {
-        current += increment;
-        counter.textContent = Math.ceil(current).toLocaleString();
-        setTimeout(updateCounter, 50);
-      } else {
-        counter.textContent = target.toLocaleString();
-      }
-    };
-    
-    // Start animation after a delay
-    setTimeout(updateCounter, 1000);
-  });
-
-  // Rotating quotes
-  const quotes = [
-    { text: "The journey of a thousand miles begins with one step.", author: "Lao Tzu" },
-    { text: "Success is the sum of small efforts repeated day in and day out.", author: "Robert Collier" },
-    { text: "What gets measured gets managed.", author: "Peter Drucker" },
-    { text: "Progress, not perfection.", author: "Anonymous" },
-    { text: "Small daily improvements lead to staggering long-term results.", author: "Robin Sharma" }
-  ];
-  
-  let currentQuote = 0;
-  const quoteElement = document.querySelector('.quote-content');
-  
-  function rotateQuote() {
-    currentQuote = (currentQuote + 1) % quotes.length;
-    const quote = quotes[currentQuote];
-    
-    quoteElement.style.opacity = '0';
-    
-    setTimeout(() => {
-      quoteElement.innerHTML = `
-        <p class="text-lg font-medium">"${quote.text}"</p>
-        <cite class="text-sm text-gray-500 mt-2 block">— ${quote.author}</cite>
-      `;
-      quoteElement.style.opacity = '1';
-    }, 500);
-  }
-  
-  // Rotate quotes every 6 seconds
-  setInterval(rotateQuote, 6000);
-});
-</script>
-
-<script>
-// Initialize all libraries and animations
-document.addEventListener('DOMContentLoaded', function() {
-  
-  // Initialize AOS (Animate On Scroll)
-  AOS.init({
-    duration: 1000,
-    easing: 'ease-in-out',
-    once: true,
-    mirror: false
-  });
-
-  // Initialize Particles.js
-  particlesJS('particles-js', {
-    "particles": {
-      "number": {
-        "value": 60,
-        "density": {
-          "enable": true,
-          "value_area": 800
-        }
-      },
-      "color": {
-        "value": ["#6366f1", "#8b5cf6", "#3b82f6"]
-      },
-      "shape": {
-        "type": "circle",
-        "stroke": {
-          "width": 0,
-          "color": "#000000"
-        }
-      },
-      "opacity": {
-        "value": 0.3,
-        "random": true,
-        "anim": {
-          "enable": true,
-          "speed": 1,
-          "opacity_min": 0.1,
-          "sync": false
-        }
-      },
-      "size": {
-        "value": 3,
-        "random": true,
-        "anim": {
-          "enable": false,
-          "speed": 40,
-          "size_min": 0.1,
-          "sync": false
-        }
-      },
-      "line_linked": {
-        "enable": true,
-        "distance": 150,
-        "color": "#6366f1",
-        "opacity": 0.2,
-        "width": 1
-      },
-      "move": {
-        "enable": true,
-        "speed": 2,
-        "direction": "none",
-        "random": false,
-        "straight": false,
-        "out_mode": "out",
-        "bounce": false,
-        "attract": {
-          "enable": false,
-          "rotateX": 600,
-          "rotateY": 1200
-        }
-      }
-    },
-    "interactivity": {
-      "detect_on": "canvas",
-      "events": {
-        "onhover": {
-          "enable": true,
-          "mode": "repulse"
-        },
-        "onclick": {
-          "enable": true,
-          "mode": "push"
-        },
-        "resize": true
-      },
-      "modes": {
-        "grab": {
-          "distance": 140,
-          "line_linked": {
-            "opacity": 1
-          }
-        },
-        "bubble": {
-          "distance": 400,
-          "size": 40,
-          "duration": 2,
-          "opacity": 8,
-          "speed": 3
-        },
-        "repulse": {
-          "distance": 100,
-          "duration": 0.4
-        },
-        "push": {
-          "particles_nb": 4
-        },
-        "remove": {
-          "particles_nb": 2
-        }
-      }
-    },
-    "retina_detect": true
-  });
-
-  // Initialize Typed.js for tagline
-  const typed = new Typed('#typed-tagline', {
-    strings: [
-      'Minimal. Mindful. Measured.',
-      'Track. Reflect. Progress.',
-      'Simple. Focused. Effective.',
-      'Your Journey. Your Growth.'
-    ],
-    typeSpeed: 50,
-    backSpeed: 30,
-    backDelay: 2000,
-    startDelay: 500,
-    loop: true,
-    showCursor: true,
-    cursorChar: '|'
-  });
-
-  // Initialize CountUp.js for counters
   const counter1 = new CountUp('counter1', 2847, {
     duration: 3,
     separator: ',',
