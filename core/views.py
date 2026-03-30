@@ -234,6 +234,45 @@ def normalize_suggested_tasks(items):
     return normalized
 
 
+def normalize_idea_suggested_tasks(items, idea, clarifying_answer=''):
+    normalized = normalize_suggested_tasks(items)
+    bounded_tasks = normalized[:9]
+
+    if len(bounded_tasks) >= 3:
+        return bounded_tasks
+
+    fallback_payload = build_idea_task_breakdown_fallback(
+        idea,
+        clarifying_question='',
+        clarifying_answer=clarifying_answer,
+    )
+    fallback_tasks = fallback_payload.get('suggested_tasks', [])
+    return fallback_tasks[:9]
+
+
+def build_slot_hint(context_data):
+    slot_date = (context_data.get('slot_date') or '').strip()
+    slot_start = (context_data.get('slot_start') or '').strip()
+    slot_end = (context_data.get('slot_end') or '').strip()
+
+    if not slot_date:
+        return ''
+
+    slot_hint = f"The user has allocated time on {slot_date}"
+    if slot_start and slot_end:
+        slot_hint += f" from {slot_start} to {slot_end}"
+    slot_hint += '. Use this date for recommended_date and keep the plan realistic for this window.'
+    return slot_hint
+
+
+def normalize_session_suggested_tasks(items, fallback_payload):
+    normalized = normalize_suggested_tasks(items)[:9]
+    if len(normalized) >= 3:
+        return normalized
+
+    return (fallback_payload.get('suggested_tasks') or [])[:9]
+
+
 def build_fallback_zen_payload(context_data):
     return {
         'response_markdown': (
@@ -376,6 +415,230 @@ def build_no_work_zen_payload(missing_tasks, missing_goals):
     }
 
 
+def build_subject_clarifying_question_fallback(section, subject_title):
+    subject_label = 'goal' if section == 'goal' else 'idea'
+    return {
+        'response_markdown': 'Before I generate tasks, answer one sharp question so the plan becomes concrete.',
+        'clarifying_question': (
+            f'For this {subject_label}, what exact deliverable are you building next, and which main tool, stack, or method will you use?'
+        ),
+        'step': 1,
+    }
+
+
+def generate_subject_clarifying_question(section, subject_title, subject_description, extra_notes=''):
+    system_prompt = (
+        'You are ZenAI-Questioner. You do only step 1 of 2. '
+        'Given one user goal or idea, ask EXACTLY ONE high-signal clarifying question that will unlock concrete implementation tasks. '
+        'Ask about the exact deliverable, target artifact, tool, stack, method, environment, or execution path. '
+        'Do not ask broad planning, motivational, or generic success questions. '
+        'Keep the question under 28 words. '
+        'Return ONLY valid JSON with this exact schema: '
+        '{'
+        '"response_markdown": string,'
+        '"clarifying_question": string'
+        '}'
+    )
+
+    api_key = config('ANTHROPIC_API_KEY', default='').strip()
+    if Anthropic and api_key:
+        client = Anthropic(api_key=api_key)
+        prompt = {
+            'section': section,
+            'subject_title': subject_title,
+            'subject_description': subject_description,
+            'extra_notes': extra_notes,
+            'today': date.today().isoformat(),
+        }
+        response = client.messages.create(
+            model='claude-sonnet-4-6',
+            max_tokens=220,
+            temperature=0.3,
+            system=system_prompt,
+            messages=[
+                {
+                    'role': 'user',
+                    'content': f"Ask the single best clarifying question for this subject: {json.dumps(prompt, ensure_ascii=False)}",
+                }
+            ],
+        )
+        if response.content:
+            parsed = parse_zenai_json_response(response.content[0].text)
+            if parsed:
+                question = (parsed.get('clarifying_question') or '').strip()
+                if question:
+                    return {
+                        'response_markdown': (parsed.get('response_markdown') or '').strip(),
+                        'clarifying_question': question,
+                        'step': 1,
+                    }
+
+    return build_subject_clarifying_question_fallback(section, subject_title)
+
+
+def build_subject_task_breakdown_fallback(section, subject_title, subject_description, clarifying_question, clarifying_answer, context_data):
+    topic = ' '.join((clarifying_answer or subject_title or '').split()).strip()
+    if not topic:
+        topic = subject_title[:80]
+
+    recommended_date = (context_data.get('slot_date') or date.today().isoformat()).strip() or date.today().isoformat()
+    note_lines = []
+    if section:
+        note_lines.append(f'Subject type: {section}')
+    if subject_description:
+        note_lines.append(f'Subject description: {subject_description}')
+    if clarifying_question:
+        note_lines.append(f'Clarifying question: {clarifying_question}')
+    if clarifying_answer:
+        note_lines.append(f'Your answer: {clarifying_answer}')
+    shared_note = '\n'.join(note_lines)[:600]
+
+    return {
+        'focus_target': f"Ship the first realistic working slice for: {topic[:80]}",
+        'response_markdown': 'Using your answer, I turned the subject into concrete execution steps for this session.',
+        'suggested_tasks': normalize_suggested_tasks([
+            {
+                'title': f"Lock the exact stack, inputs, and output for {topic[:120]}",
+                'why': 'A concrete technical scope removes ambiguity before implementation begins.',
+                'duration_minutes': 20,
+                'is_rest': False,
+                'cadence': 'one-off',
+                'frequency_detail': 'One focused technical scoping pass',
+                'recommended_date': recommended_date,
+                'slot_start': '',
+                'slot_end': '',
+                'recurrence_type': 'none',
+                'recurrence_days': '',
+                'recurrence_end_date': '',
+                'tag': 'W',
+                'priority': 'H',
+                'note': shared_note,
+            },
+            {
+                'title': f"Set up the local environment and dependencies for {topic[:120]}",
+                'why': 'A runnable environment makes it possible to test the core path immediately.',
+                'duration_minutes': 25,
+                'is_rest': False,
+                'cadence': 'one-off',
+                'frequency_detail': 'Install and configure the first working version',
+                'recommended_date': recommended_date,
+                'slot_start': '',
+                'slot_end': '',
+                'recurrence_type': 'none',
+                'recurrence_days': '',
+                'recurrence_end_date': '',
+                'tag': 'W',
+                'priority': 'H',
+                'note': shared_note,
+            },
+            {
+                'title': f"Build and test the first end-to-end slice for {topic[:120]}",
+                'why': 'A full working slice exposes integration issues faster than abstract planning.',
+                'duration_minutes': 40,
+                'is_rest': False,
+                'cadence': 'one-off',
+                'frequency_detail': 'Implement the smallest usable version',
+                'recommended_date': recommended_date,
+                'slot_start': '',
+                'slot_end': '',
+                'recurrence_type': 'none',
+                'recurrence_days': '',
+                'recurrence_end_date': '',
+                'tag': 'W',
+                'priority': 'H',
+                'note': shared_note,
+            },
+        ]),
+        'step': 2,
+    }
+
+
+def generate_subject_task_breakdown_reply(section, subject_title, subject_description, clarifying_question, clarifying_answer, context_data):
+    slot_hint = build_slot_hint(context_data)
+    fallback_payload = build_subject_task_breakdown_fallback(
+        section,
+        subject_title,
+        subject_description,
+        clarifying_question,
+        clarifying_answer,
+        context_data,
+    )
+
+    system_prompt = (
+        'You are ZenAI-Planner. You do only step 2 of 2. '
+        'The user already has a goal or idea and has already answered one clarifying question. '
+        'Generate a concrete execution plan with AT LEAST 3 and AT MOST 9 suggested tasks. '
+        'Every task must be domain-specific, implementation-ready, and directly based on the subject plus the user answer. '
+        'Prefer specific tools, frameworks, APIs, environments, file types, integrations, and verbs. '
+        'Avoid vague tasks like "plan", "brainstorm", "define success", or "make prototype" unless they name a concrete artifact and tool. '
+        'Order tasks by execution sequence. Keep scope realistic for a near-term working slice. '
+        f'{slot_hint} '
+        'Return ONLY valid JSON with this exact schema: '
+        '{'
+        '"focus_target": string,'
+        '"response_markdown": string,'
+        '"suggested_tasks": ['
+        '{'
+        '"title": string,'
+        '"why": string,'
+        '"duration_minutes": number,'
+        '"is_rest": boolean,'
+        '"cadence": "daily"|"weekly"|"monthly"|"one-off",'
+        '"frequency_detail": string,'
+        '"recommended_date": string (YYYY-MM-DD),'
+        '"slot_start": string,'
+        '"slot_end": string,'
+        '"recurrence_type": "none"|"daily"|"weekly"|"custom",'
+        '"recurrence_days": string,'
+        '"recurrence_end_date": string,'
+        '"tag": "P"|"S"|"W"|"R"|"B",'
+        '"priority": "L"|"M"|"H"|"U",'
+        '"note": string'
+        '}'
+        ']'
+        '}'
+    )
+
+    api_key = config('ANTHROPIC_API_KEY', default='').strip()
+    if Anthropic and api_key:
+        client = Anthropic(api_key=api_key)
+        prompt = {
+            'section': section,
+            'subject_title': subject_title,
+            'subject_description': subject_description,
+            'clarifying_question': clarifying_question,
+            'clarifying_answer': clarifying_answer,
+            'context': context_data,
+            'today': date.today().isoformat(),
+        }
+        response = client.messages.create(
+            model='claude-sonnet-4-6',
+            max_tokens=1100,
+            temperature=0.4,
+            system=system_prompt,
+            messages=[
+                {
+                    'role': 'user',
+                    'content': f"Create the concrete execution tasks for this clarified subject: {json.dumps(prompt, ensure_ascii=False)}",
+                }
+            ],
+        )
+        if response.content:
+            parsed = parse_zenai_json_response(response.content[0].text)
+            if parsed:
+                return {
+                    'focus_target': (parsed.get('focus_target') or '').strip(),
+                    'response_markdown': (parsed.get('response_markdown') or '').strip(),
+                    'suggested_tasks': normalize_session_suggested_tasks(
+                        parsed.get('suggested_tasks') or [],
+                        fallback_payload,
+                    ),
+                    'step': 2,
+                }
+
+    return fallback_payload
+
+
 def generate_zenai_reply(user_prompt, context_data, history):
     slot_date   = context_data.get('slot_date', '')
     slot_start  = context_data.get('slot_start', '')
@@ -394,23 +657,37 @@ def generate_zenai_reply(user_prompt, context_data, history):
         "'A man on a thousand mile walk has to forget his goal and say to himself every morning: "
         "Today I am going to cover twenty-five miles and then rest up and sleep.' — Leo Tolstoy. "
         "This means: ignore the overwhelming whole. Surface the exact 25-mile segment the user can walk TODAY or in their available time slot. "
+        ""
+        "CRITICAL WORKFLOW: "
+        "1. First, ask EXACTLY ONE high-signal clarifying question that cuts through ambiguity. "
+        "   - This question must be domain-specific and actionable. "
+        "   - Example: Instead of 'Define the AI workflow', ask 'AI workflow for what? What tools (n8n, Make, Zapier)?'. "
+        "   - Do NOT ask about success metrics or generic scope—ask about the specific domain, tools, methods to use. "
+        "2. Then generate EXACTLY 2 domain-specific, fully actionable tasks that follow the clarification logic. "
+        "   - Each task must reference specific tools, frameworks, libraries, or methods. "
+        "   - Task 1: Setup/learning (e.g., 'Learn how to use n8n document ingestion connectors'). "
+        "   - Task 2: Build/execute (e.g., 'Build and test a document ingestion workflow using n8n locally'). "
+        "   - Never use generic titles like 'Plan', 'Define', 'Create a prototype'—be specific. "
+        ""
         "Rules you must obey: "
-        "1. Never produce generic advice. Every task must be a direct sub-step of the provided goal or idea. "
-        "2. Fit all suggested tasks inside the user's stated time slot; sum of duration_minutes must not exceed the slot duration. "
-        "3. If no time slot is given, default to 60-minute total effort. "
-        "4. Order tasks by execution sequence, not importance. "
-        "5. Provide a 'focus_target' that is a single, measurable outcome for this session only — not the whole goal. "
-        "6. Clarifying questions should help narrow scope if the goal is too broad. "
-        "7. Always include both ACTION tasks and REST/RECOVERY blocks when appropriate to avoid burnout. "
+        "1. Ask at most 1 clarifying question; it must be high-signal and domain-specific. "
+        "2. Generate EXACTLY 2 suggested_tasks, never more. "
+        "3. Each task must name specific tools, frameworks, methods, or actions (e.g., 'n8n', 'Docker', 'pytest', 'FastAPI'). "
+        "4. Never produce generic advice. Every task must be a direct, actionable sub-step of the provided goal or idea. "
+        "5. Fit all suggested tasks inside the user's stated time slot; sum of duration_minutes must not exceed the slot duration. "
+        "6. If no time slot is given, default to 60-minute total effort. "
+        "7. Order tasks by execution sequence (e.g., learn first, then build). "
+        "8. Provide a 'focus_target' that is a single, measurable outcome for this session only — not the whole goal. "
+        "9. Always include both ACTION tasks and REST/RECOVERY blocks when appropriate to avoid burnout. "
         f"{slot_hint} "
         "Return ONLY valid JSON with this exact schema: "
         "{"
         "\"focus_target\": string,"
         "\"response_markdown\": string,"
-        "\"clarifying_questions\": string[],"
+        "\"clarifying_questions\": string[] (exactly 1 question if scope is unclear; empty array if scope is clear),"
         "\"suggested_tasks\": ["
         "{"
-        "\"title\": string,"
+        "\"title\": string (MUST be domain-specific with tools/methods named),"
         "\"why\": string,"
         "\"duration_minutes\": number,"
         "\"is_rest\": boolean,"
@@ -459,72 +736,145 @@ def generate_zenai_reply(user_prompt, context_data, history):
         return build_fallback_zen_payload(context_data)
 
 
-def build_idea_breakdown_fallback(idea):
-    idea_summary = (idea.description or '').strip()
-    if not idea_summary:
-        idea_summary = 'Clarify scope and produce one practical first deliverable.'
+def build_idea_clarifying_question_fallback(idea):
+    return {
+        'response_markdown': 'Answer one sharp question first so the task list can become concrete and tool-specific.',
+        'clarifying_question': (
+            f'For "{idea.title[:80]}", what exact deliverable are you building first, and which main tool or stack will you use?'
+        ),
+    }
+
+
+def generate_idea_clarifying_question(idea):
+    system_prompt = (
+        'You are ZenAI-IdeaQuestioner. You do only step 1 of 2. '
+        'Given one idea, ask EXACTLY ONE high-signal clarifying question that will unlock concrete implementation tasks. '
+        'The question must cut through ambiguity by asking about the exact deliverable, domain, tool, stack, method, target artifact, or operating environment. '
+        'Do not ask broad planning, motivation, or success-metric questions. '
+        'Keep the question under 28 words. '
+        'Return ONLY valid JSON with this exact schema: '
+        '{'
+        '"response_markdown": string,'
+        '"clarifying_question": string'
+        '}'
+    )
+
+    api_key = config('ANTHROPIC_API_KEY', default='').strip()
+    if Anthropic and api_key:
+        client = Anthropic(api_key=api_key)
+        prompt = {
+            'idea_title': idea.title,
+            'idea_description': idea.description,
+            'today': date.today().isoformat(),
+        }
+        response = client.messages.create(
+            model='claude-sonnet-4-6',
+            max_tokens=220,
+            temperature=0.3,
+            system=system_prompt,
+            messages=[
+                {
+                    'role': 'user',
+                    'content': f"Ask the single best clarifying question for this idea: {json.dumps(prompt, ensure_ascii=False)}",
+                }
+            ],
+        )
+        if response.content:
+            parsed = parse_zenai_json_response(response.content[0].text)
+            if parsed:
+                question = (parsed.get('clarifying_question') or '').strip()
+                if question:
+                    return {
+                        'response_markdown': (parsed.get('response_markdown') or '').strip(),
+                        'clarifying_question': question,
+                    }
+
+    return build_idea_clarifying_question_fallback(idea)
+
+
+def build_idea_task_breakdown_fallback(idea, clarifying_question, clarifying_answer):
+    topic = ' '.join((clarifying_answer or idea.title or '').split()).strip()
+    if not topic:
+        topic = idea.title[:80]
+
+    answer_note = []
+    if clarifying_question:
+        answer_note.append(f'Clarifying question: {clarifying_question}')
+    if clarifying_answer:
+        answer_note.append(f'Your answer: {clarifying_answer}')
+    shared_note = '\n'.join(answer_note)[:500]
 
     return {
-        'focus_target': f"Ship first concrete output for: {idea.title[:80]}",
+        'focus_target': f"Ship the first runnable slice for: {topic[:80]}",
         'response_markdown': (
-            'I broke this idea into concrete, executable tasks you can start today. '
-            'Add the cards below directly to your plan.'
+            'Using your answer, I translated the idea into concrete implementation steps. '
+            'Complete these in sequence and add the ones you want directly to your calendar.'
         ),
         'suggested_tasks': normalize_suggested_tasks([
             {
-                'title': f"Define success criteria for {idea.title[:80]}",
-                'why': 'A measurable target prevents scope drift.',
+                'title': f"Choose the exact toolchain and input/output contract for {topic[:120]}",
+                'why': 'A precise stack and data contract remove ambiguity before implementation starts.',
                 'duration_minutes': 20,
                 'is_rest': False,
                 'cadence': 'one-off',
-                'frequency_detail': 'One focused planning pass',
+                'frequency_detail': 'One technical scoping pass',
                 'recommended_date': date.today().isoformat(),
                 'slot_start': '',
                 'slot_end': '',
                 'recurrence_type': 'none',
+                'recurrence_days': '',
+                'recurrence_end_date': '',
                 'tag': 'W',
                 'priority': 'H',
-                'note': idea_summary[:400],
+                'note': shared_note,
             },
             {
-                'title': f"Create a tiny prototype for {idea.title[:80]}",
-                'why': 'Fast validation reveals what to keep or discard.',
-                'duration_minutes': 45,
-                'is_rest': False,
-                'cadence': 'one-off',
-                'frequency_detail': 'Build first draft',
-                'recommended_date': date.today().isoformat(),
-                'slot_start': '',
-                'slot_end': '',
-                'recurrence_type': 'none',
-                'tag': 'W',
-                'priority': 'H',
-                'note': '',
-            },
-            {
-                'title': f"List 3 improvements for {idea.title[:80]}",
-                'why': 'Structured iteration keeps momentum practical.',
+                'title': f"Set up the local environment and dependencies for {topic[:120]}",
+                'why': 'A runnable environment lets you validate the core flow immediately.',
                 'duration_minutes': 25,
                 'is_rest': False,
                 'cadence': 'one-off',
-                'frequency_detail': 'Review and refine',
+                'frequency_detail': 'Install and configure the first stack version',
                 'recommended_date': date.today().isoformat(),
                 'slot_start': '',
                 'slot_end': '',
                 'recurrence_type': 'none',
+                'recurrence_days': '',
+                'recurrence_end_date': '',
                 'tag': 'W',
-                'priority': 'M',
-                'note': '',
+                'priority': 'H',
+                'note': shared_note,
+            },
+            {
+                'title': f"Build and test the first end-to-end workflow for {topic[:120]}",
+                'why': 'A complete first slice reveals integration gaps faster than abstract planning.',
+                'duration_minutes': 40,
+                'is_rest': False,
+                'cadence': 'one-off',
+                'frequency_detail': 'Implement the smallest working version',
+                'recommended_date': date.today().isoformat(),
+                'slot_start': '',
+                'slot_end': '',
+                'recurrence_type': 'none',
+                'recurrence_days': '',
+                'recurrence_end_date': '',
+                'tag': 'W',
+                'priority': 'H',
+                'note': shared_note,
             },
         ]),
     }
 
 
-def generate_idea_breakdown_reply(idea):
+def generate_idea_task_breakdown_reply(idea, clarifying_question, clarifying_answer):
     system_prompt = (
-        'You are ZenAI-IdeaPlanner. Break one idea into practical, workable tasks. '
-        'Use execution-first thinking: each task must be directly actionable, time-boxed, and testable. '
-        'Do not output motivational filler. Keep scope realistic for daily execution. '
+        'You are ZenAI-IdeaPlanner. You do only step 2 of 2. '
+        'The user already has an idea and has already answered one clarifying question. '
+        'Generate a concrete execution plan with AT LEAST 3 and AT MOST 9 suggested tasks. '
+        'Every task must be domain-specific, implementation-ready, and directly based on the idea plus the user answer. '
+        'Prefer specific tools, frameworks, APIs, environments, file types, integrations, and verbs. '
+        'Avoid vague tasks like "plan", "brainstorm", "define success", or "make prototype" unless they name a concrete artifact and tool. '
+        'Order tasks by execution sequence. Keep scope realistic for a near-term working slice. '
         'Return ONLY valid JSON with this exact schema: '
         '{'
         '"focus_target": string,'
@@ -557,30 +907,38 @@ def generate_idea_breakdown_reply(idea):
         prompt = {
             'idea_title': idea.title,
             'idea_description': idea.description,
+            'clarifying_question': clarifying_question,
+            'clarifying_answer': clarifying_answer,
             'today': date.today().isoformat(),
         }
         response = client.messages.create(
             model='claude-sonnet-4-6',
-            max_tokens=900,
+            max_tokens=1100,
             temperature=0.4,
             system=system_prompt,
             messages=[
                 {
                     'role': 'user',
-                    'content': f"Create a practical execution plan for this idea: {json.dumps(prompt, ensure_ascii=False)}",
+                    'content': f"Create the concrete execution tasks for this clarified idea: {json.dumps(prompt, ensure_ascii=False)}",
                 }
             ],
         )
         if response.content:
             parsed = parse_zenai_json_response(response.content[0].text)
             if parsed:
-                return {
-                    'focus_target': (parsed.get('focus_target') or '').strip(),
-                    'response_markdown': (parsed.get('response_markdown') or '').strip(),
-                    'suggested_tasks': normalize_suggested_tasks(parsed.get('suggested_tasks') or []),
-                }
+                normalized_tasks = normalize_idea_suggested_tasks(
+                    parsed.get('suggested_tasks') or [],
+                    idea=idea,
+                    clarifying_answer=clarifying_answer,
+                )
+                if normalized_tasks:
+                    return {
+                        'focus_target': (parsed.get('focus_target') or '').strip(),
+                        'response_markdown': (parsed.get('response_markdown') or '').strip(),
+                        'suggested_tasks': normalized_tasks,
+                    }
 
-    return build_idea_breakdown_fallback(idea)
+    return build_idea_task_breakdown_fallback(idea, clarifying_question, clarifying_answer)
 
 def home(request):
     if request.user.is_authenticated:
@@ -739,7 +1097,12 @@ def zenai_send_message(request):
             missing_goals=True,
         )
     else:
-        assistant_payload = generate_zenai_reply(user_message, context_data, history)
+        assistant_payload = generate_subject_clarifying_question(
+            section=section,
+            subject_title=subject_title,
+            subject_description=subject_description,
+            extra_notes=extra_notes,
+        )
 
     assistant_reply = assistant_payload.get('response_markdown') or 'I could not generate a response.'
 
@@ -760,8 +1123,110 @@ def zenai_send_message(request):
         'success': True,
         'session_id': session.id,
         'reply': assistant_reply,
+        'step': assistant_payload.get('step') or 1,
+        'clarifying_question': assistant_payload.get('clarifying_question') or '',
         'focus_target': assistant_payload.get('focus_target') or '',
         'clarifying_questions': assistant_payload.get('clarifying_questions') or [],
+        'suggested_tasks': assistant_payload.get('suggested_tasks') or [],
+    })
+
+
+@login_required
+@require_POST
+def zenai_answer_clarifying_question(request):
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON payload.'}, status=400)
+
+    section = (payload.get('section') or 'goal').strip()
+    session_id = payload.get('session_id')
+    goal_id = payload.get('goal_id')
+    idea_id = payload.get('idea_id')
+    slot_date = (payload.get('slot_date') or '').strip()
+    slot_start = (payload.get('slot_start') or '').strip()
+    slot_end = (payload.get('slot_end') or '').strip()
+    extra_notes = (payload.get('notes') or '').strip()
+    clarifying_question = (payload.get('clarifying_question') or '').strip()
+    clarifying_answer = (payload.get('clarifying_answer') or '').strip()
+
+    if not clarifying_answer:
+        return JsonResponse({
+            'success': False,
+            'error': 'Please answer the clarifying question before generating tasks.',
+        }, status=400)
+
+    subject_title = ''
+    subject_description = ''
+    if goal_id:
+        try:
+            goal_obj = Goal.objects.get(id=goal_id, user=request.user)
+            subject_title = goal_obj.title
+            subject_description = goal_obj.description
+            section = 'goal'
+        except Goal.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Goal not found.'}, status=404)
+    elif idea_id:
+        try:
+            idea_obj = Idea.objects.get(id=idea_id, user=request.user)
+            subject_title = idea_obj.title
+            subject_description = idea_obj.description
+            section = 'idea'
+        except Idea.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Idea not found.'}, status=404)
+    else:
+        return JsonResponse({'success': False, 'error': 'Please select a goal or idea to break down.'}, status=400)
+
+    session = get_object_or_404(ZenChatSession, id=session_id, user=request.user)
+
+    context_data = build_zen_context(request.user, section)
+    context_data['slot_date'] = slot_date
+    context_data['slot_start'] = slot_start
+    context_data['slot_end'] = slot_end
+    context_data['subject_title'] = subject_title
+    context_data['subject_description'] = subject_description
+    context_data['clarifying_question'] = clarifying_question
+    context_data['clarifying_answer'] = clarifying_answer
+    context_data['extra_notes'] = extra_notes
+
+    answer_message = f"Clarification: {clarifying_answer}"
+    ZenChatMessage.objects.create(
+        session=session,
+        role='user',
+        content=answer_message,
+        context_snapshot=context_data,
+    )
+
+    assistant_payload = generate_subject_task_breakdown_reply(
+        section=section,
+        subject_title=subject_title,
+        subject_description=subject_description,
+        clarifying_question=clarifying_question,
+        clarifying_answer=clarifying_answer,
+        context_data=context_data,
+    )
+
+    assistant_reply = assistant_payload.get('response_markdown') or 'I could not generate a response.'
+
+    ZenChatMessage.objects.create(
+        session=session,
+        role='assistant',
+        content=assistant_reply,
+        context_snapshot={
+            'context': context_data,
+            'assistant_structured': assistant_payload,
+        },
+    )
+
+    session.updated_at = timezone.now()
+    session.save(update_fields=['updated_at'])
+
+    return JsonResponse({
+        'success': True,
+        'session_id': session.id,
+        'reply': assistant_reply,
+        'step': assistant_payload.get('step') or 2,
+        'focus_target': assistant_payload.get('focus_target') or '',
         'suggested_tasks': assistant_payload.get('suggested_tasks') or [],
     })
 
@@ -886,6 +1351,8 @@ def zenai_session_messages(request, session_id):
                 'role': item['role'],
                 'content': item['content'],
                 'created_at': item['created_at'].isoformat(),
+                'step': (item['context_snapshot'] or {}).get('assistant_structured', {}).get('step', ''),
+                'clarifying_question': (item['context_snapshot'] or {}).get('assistant_structured', {}).get('clarifying_question', ''),
                 'focus_target': (item['context_snapshot'] or {}).get('assistant_structured', {}).get('focus_target', ''),
                 'clarifying_questions': (item['context_snapshot'] or {}).get('assistant_structured', {}).get('clarifying_questions', []),
                 'suggested_tasks': (item['context_snapshot'] or {}).get('assistant_structured', {}).get('suggested_tasks', []),
@@ -1553,12 +2020,7 @@ def delete_idea(request, idea_id):
 @require_POST
 def idea_ai_breakdown(request, idea_id):
     idea = get_object_or_404(Idea, id=idea_id, user=request.user)
-
-    payload = generate_idea_breakdown_reply(idea)
-
-    focus_target = payload.get('focus_target', '').strip()
-    if not focus_target:
-        focus_target = strip_tags(idea.title)[:120]
+    payload = generate_idea_clarifying_question(idea)
 
     return JsonResponse({
         'success': True,
@@ -1566,9 +2028,54 @@ def idea_ai_breakdown(request, idea_id):
             'id': idea.id,
             'title': idea.title,
         },
-        'focus_target': focus_target,
         'response_markdown': payload.get('response_markdown', '').strip(),
-        'suggested_tasks': payload.get('suggested_tasks', []),
+        'clarifying_question': payload.get('clarifying_question', '').strip(),
+        'step': 1,
+    })
+
+
+@login_required
+@require_POST
+def idea_ai_breakdown_tasks(request, idea_id):
+    idea = get_object_or_404(Idea, id=idea_id, user=request.user)
+
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON payload.'}, status=400)
+
+    clarifying_question = (payload.get('clarifying_question') or '').strip()
+    clarifying_answer = (payload.get('clarifying_answer') or '').strip()
+
+    if not clarifying_answer:
+        return JsonResponse({
+            'success': False,
+            'error': 'Please answer the clarifying question before generating tasks.',
+        }, status=400)
+
+    task_payload = generate_idea_task_breakdown_reply(
+        idea,
+        clarifying_question=clarifying_question,
+        clarifying_answer=clarifying_answer,
+    )
+
+    focus_target = task_payload.get('focus_target', '').strip()
+    if not focus_target:
+        focus_target = strip_tags(idea.title)[:120]
+
+    suggested_tasks = (task_payload.get('suggested_tasks') or [])[:9]
+
+    return JsonResponse({
+        'success': True,
+        'idea': {
+            'id': idea.id,
+            'title': idea.title,
+        },
+        'step': 2,
+        'focus_target': focus_target,
+        'response_markdown': task_payload.get('response_markdown', '').strip(),
+        'suggested_tasks': suggested_tasks,
+        'task_count': len(suggested_tasks),
     })
 
 

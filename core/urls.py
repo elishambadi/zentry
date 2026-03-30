@@ -13,6 +13,7 @@ urlpatterns = [
     path('review/monthly/', views.monthly_review, name='monthly_review'),
     path('zenai/', views.zenai_panel, name='zenai_panel'),
     path('zenai/send/', views.zenai_send_message, name='zenai_send_message'),
+    path('zenai/answer/', views.zenai_answer_clarifying_question, name='zenai_answer_clarifying_question'),
     path('zenai/sessions/', views.zenai_sessions, name='zenai_sessions'),
     path('zenai/session/<int:session_id>/', views.zenai_session_messages, name='zenai_session_messages'),
     path('zenai/task/add/', views.zenai_add_suggested_task, name='zenai_add_suggested_task'),
@@ -43,6 +44,7 @@ urlpatterns = [
     # Ideas board
     path('ideas/', views.ideas_board, name='ideas_board'),
     path('idea/<int:idea_id>/breakdown/', views.idea_ai_breakdown, name='idea_ai_breakdown'),
+    path('idea/<int:idea_id>/breakdown/tasks/', views.idea_ai_breakdown_tasks, name='idea_ai_breakdown_tasks'),
     path('idea/convert/<int:idea_id>/', views.convert_idea_to_task, name='convert_idea_to_task'),
     path('idea/delete/<int:idea_id>/', views.delete_idea, name='delete_idea'),
     

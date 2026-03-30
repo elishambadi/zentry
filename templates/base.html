@@ -173,12 +173,12 @@
                         <div x-show="accordion.subject" class="px-4 pb-4 space-y-2">
                             <div class="flex gap-2 text-sm">
                             <button
-                                @click="subjectType = 'goal'; subjectId = ''"
+                                @click="subjectType = 'goal'; subjectId = ''; subjectLabel = ''; sessionId = null; messages = []; resetClarificationState()"
                                 :class="subjectType === 'goal' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
                                 class="rounded-full px-4 py-1.5 font-medium transition-colors"
                             >🎯 Goal</button>
                             <button
-                                @click="subjectType = 'idea'; subjectId = ''"
+                                @click="subjectType = 'idea'; subjectId = ''; subjectLabel = ''; sessionId = null; messages = []; resetClarificationState()"
                                 :class="subjectType === 'idea' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
                                 class="rounded-full px-4 py-1.5 font-medium transition-colors"
                             >💡 Idea</button>
@@ -192,7 +192,7 @@
                                 </template>
                                 <template x-for="g in goals" :key="g.id">
                                     <button
-                                        @click="subjectId = g.id; subjectLabel = g.title"
+                                        @click="subjectId = g.id; subjectLabel = g.title; sessionId = null; messages = []; resetClarificationState()"
                                         :class="subjectId === g.id ? 'bg-indigo-50 border-indigo-300 text-indigo-800' : 'hover:bg-gray-50 border-transparent text-gray-700'"
                                         class="w-full text-left rounded-md border px-3 py-2 text-sm transition-colors"
                                     >
@@ -210,7 +210,7 @@
                                 </template>
                                 <template x-for="i in ideas" :key="i.id">
                                     <button
-                                        @click="subjectId = i.id; subjectLabel = i.title"
+                                        @click="subjectId = i.id; subjectLabel = i.title; sessionId = null; messages = []; resetClarificationState()"
                                         :class="subjectId === i.id ? 'bg-indigo-50 border-indigo-300 text-indigo-800' : 'hover:bg-gray-50 border-transparent text-gray-700'"
                                         class="w-full text-left rounded-md border px-3 py-2 text-sm transition-colors"
                                     >
@@ -289,21 +289,40 @@
                             ></textarea>
                         </div>
                     </section>
+
+                    <!-- Step 4: Clarifying answer -->
+                    <section x-show="awaitingClarification" class="rounded-xl border border-indigo-200 bg-indigo-50">
+                        <div class="px-4 py-3 space-y-3">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-xs font-semibold uppercase tracking-wide text-indigo-700">4 — Answer the clarifying question</span>
+                                <span class="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-indigo-700 border border-indigo-200">Required</span>
+                            </div>
+                            <p class="text-sm text-indigo-900" x-text="pendingClarifyingQuestion"></p>
+                            <textarea
+                                x-model="clarifyingAnswer"
+                                rows="3"
+                                class="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+                                placeholder="Answer with the exact deliverable, tools, stack, constraints, or environment."
+                            ></textarea>
+                        </div>
+                    </section>
                 </div>
 
                 <!-- Submit -->
                 <div class="px-5 py-4 border-t border-gray-100 bg-white">
                     <p class="text-xs mb-2" :class="chatStatusType === 'error' ? 'text-red-600' : 'text-indigo-600'" x-show="chatStatus" x-text="chatStatus"></p>
                     <button
-                        @click="sendBreakdown()"
-                        :disabled="loading || !subjectId || !slotDate"
+                        @click="submitZenAIFlow()"
+                        :disabled="loading || !subjectId || !slotDate || (awaitingClarification && !clarifyingAnswer.trim())"
                         class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors"
                     >
-                        <span x-show="!loading">Break it down ✦</span>
+                        <span x-show="!loading && !awaitingClarification">Break it down ✦</span>
+                        <span x-show="!loading && awaitingClarification">Generate tasks ✦</span>
                         <span x-show="loading">Thinking…</span>
                     </button>
                     <p x-show="!subjectId" class="mt-1 text-center text-[11px] text-gray-400">Select a goal or idea above to continue.</p>
                     <p x-show="subjectId && !slotDate" class="mt-1 text-center text-[11px] text-gray-400">Pick a date for your session.</p>
+                    <p x-show="awaitingClarification && !clarifyingAnswer.trim()" class="mt-1 text-center text-[11px] text-gray-400">Answer the question above to unlock tasks.</p>
                 </div>
 
                 <!-- Results -->
@@ -335,6 +354,13 @@
                                     <span>🎯</span>
                                     <span x-text="item.focus_target"></span>
                                 </div>
+                            </template>
+
+                            <template x-if="item.role !== 'user' && item.clarifying_question">
+                                <section class="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 space-y-1">
+                                    <p class="text-[11px] font-semibold text-indigo-700 uppercase">Clarifying question</p>
+                                    <p class="text-sm text-indigo-900" x-text="item.clarifying_question"></p>
+                                </section>
                             </template>
 
                             <!-- Clarifying questions -->
@@ -460,6 +486,9 @@
                 slotStart: '',
                 slotEnd: '',
                 extraNotes: '',
+                pendingClarifyingQuestion: '',
+                clarifyingAnswer: '',
+                awaitingClarification: false,
 
                 // Data
                 goals: [],
@@ -504,10 +533,17 @@
                     return {
                         role: 'assistant',
                         content: src.response_markdown || src.reply || payload.content || '',
+                        step: src.step || '',
+                        clarifying_question: src.clarifying_question || '',
                         focus_target: src.focus_target || '',
                         clarifying_questions: Array.isArray(src.clarifying_questions) ? src.clarifying_questions : [],
                         suggested_tasks: Array.isArray(src.suggested_tasks) ? src.suggested_tasks : [],
                     };
+                },
+                resetClarificationState() {
+                    this.pendingClarifyingQuestion = '';
+                    this.clarifyingAnswer = '';
+                    this.awaitingClarification = false;
                 },
                 scrollToBottom() {
                     this.$nextTick(() => {
@@ -567,6 +603,13 @@
                             this.messages = data.messages.map(m =>
                                 m.role === 'assistant' ? this.normalizeAssistantMessage(m) : m
                             );
+                            const lastAssistant = [...this.messages].reverse().find(m => m.role === 'assistant');
+                            if (lastAssistant && lastAssistant.clarifying_question && (!lastAssistant.suggested_tasks || lastAssistant.suggested_tasks.length === 0)) {
+                                this.pendingClarifyingQuestion = lastAssistant.clarifying_question;
+                                this.awaitingClarification = true;
+                            } else {
+                                this.resetClarificationState();
+                            }
                             this.chatStatus = '';
                             this.scrollToBottom();
                         }
@@ -574,6 +617,12 @@
                 },
 
                 // ── Main action ───────────────────────────────────────
+                async submitZenAIFlow() {
+                    if (this.awaitingClarification) {
+                        return this.answerClarifyingQuestion();
+                    }
+                    return this.sendBreakdown();
+                },
                 async sendBreakdown() {
                     if (!this.subjectId || !this.slotDate || this.loading) return;
 
@@ -612,7 +661,72 @@
                         const data = await res.json();
                         if (data.success) {
                             this.sessionId = data.session_id;
+                            const assistantMessage = this.normalizeAssistantMessage(data);
+                            this.messages.push(assistantMessage);
+                            if (assistantMessage.clarifying_question) {
+                                this.pendingClarifyingQuestion = assistantMessage.clarifying_question;
+                                this.awaitingClarification = true;
+                                this.chatStatus = 'Answer the clarifying question to generate tasks.';
+                                this.chatStatusType = 'info';
+                            } else {
+                                this.resetClarificationState();
+                            }
+                            this.fetchSessions();
+                        } else {
+                            this.chatStatus = data.error || 'Something went wrong.';
+                            this.chatStatusType = 'error';
+                            this.messages.push({ role: 'assistant', content: data.error || 'Could not process request.' });
+                        }
+                    } catch {
+                        this.chatStatus = 'ZenAI is unavailable right now.';
+                        this.chatStatusType = 'error';
+                        this.messages.push({ role: 'assistant', content: 'ZenAI is unavailable right now. Please try again.' });
+                    } finally {
+                        this.loading = false;
+                        this.scrollToBottom();
+                    }
+                },
+                async answerClarifyingQuestion() {
+                    if (!this.subjectId || !this.slotDate || this.loading || !this.awaitingClarification || !this.clarifyingAnswer.trim()) return;
+
+                    const answerText = this.clarifyingAnswer.trim();
+                    this.messages.push({
+                        role: 'user',
+                        content: `Clarification: ${answerText}`,
+                    });
+                    this.loading = true;
+                    this.chatStatus = '';
+                    this.scrollToBottom();
+
+                    const body = {
+                        section: this.subjectType,
+                        slot_date: this.slotDate,
+                        slot_start: this.slotStart,
+                        slot_end: this.slotEnd,
+                        notes: this.extraNotes,
+                        session_id: this.sessionId,
+                        clarifying_question: this.pendingClarifyingQuestion,
+                        clarifying_answer: answerText,
+                    };
+                    if (this.subjectType === 'goal') body.goal_id = this.subjectId;
+                    else body.idea_id = this.subjectId;
+
+                    try {
+                        const res = await fetch('{% url "zenai_answer_clarifying_question" %}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCookie('csrftoken') || '',
+                            },
+                            body: JSON.stringify(body),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            this.sessionId = data.session_id;
                             this.messages.push(this.normalizeAssistantMessage(data));
+                            this.resetClarificationState();
+                            this.chatStatus = 'Tasks are ready below.';
+                            this.chatStatusType = 'info';
                             this.fetchSessions();
                         } else {
                             this.chatStatus = data.error || 'Something went wrong.';
