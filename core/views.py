@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.db.models import Q, Count, Prefetch
 from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 from datetime import date, datetime, timedelta
 from django.utils import timezone
 from decouple import config
@@ -457,6 +458,130 @@ def generate_zenai_reply(user_prompt, context_data, history):
     else:
         return build_fallback_zen_payload(context_data)
 
+
+def build_idea_breakdown_fallback(idea):
+    idea_summary = (idea.description or '').strip()
+    if not idea_summary:
+        idea_summary = 'Clarify scope and produce one practical first deliverable.'
+
+    return {
+        'focus_target': f"Ship first concrete output for: {idea.title[:80]}",
+        'response_markdown': (
+            'I broke this idea into concrete, executable tasks you can start today. '
+            'Add the cards below directly to your plan.'
+        ),
+        'suggested_tasks': normalize_suggested_tasks([
+            {
+                'title': f"Define success criteria for {idea.title[:80]}",
+                'why': 'A measurable target prevents scope drift.',
+                'duration_minutes': 20,
+                'is_rest': False,
+                'cadence': 'one-off',
+                'frequency_detail': 'One focused planning pass',
+                'recommended_date': date.today().isoformat(),
+                'slot_start': '',
+                'slot_end': '',
+                'recurrence_type': 'none',
+                'tag': 'W',
+                'priority': 'H',
+                'note': idea_summary[:400],
+            },
+            {
+                'title': f"Create a tiny prototype for {idea.title[:80]}",
+                'why': 'Fast validation reveals what to keep or discard.',
+                'duration_minutes': 45,
+                'is_rest': False,
+                'cadence': 'one-off',
+                'frequency_detail': 'Build first draft',
+                'recommended_date': date.today().isoformat(),
+                'slot_start': '',
+                'slot_end': '',
+                'recurrence_type': 'none',
+                'tag': 'W',
+                'priority': 'H',
+                'note': '',
+            },
+            {
+                'title': f"List 3 improvements for {idea.title[:80]}",
+                'why': 'Structured iteration keeps momentum practical.',
+                'duration_minutes': 25,
+                'is_rest': False,
+                'cadence': 'one-off',
+                'frequency_detail': 'Review and refine',
+                'recommended_date': date.today().isoformat(),
+                'slot_start': '',
+                'slot_end': '',
+                'recurrence_type': 'none',
+                'tag': 'W',
+                'priority': 'M',
+                'note': '',
+            },
+        ]),
+    }
+
+
+def generate_idea_breakdown_reply(idea):
+    system_prompt = (
+        'You are ZenAI-IdeaPlanner. Break one idea into practical, workable tasks. '
+        'Use execution-first thinking: each task must be directly actionable, time-boxed, and testable. '
+        'Do not output motivational filler. Keep scope realistic for daily execution. '
+        'Return ONLY valid JSON with this exact schema: '
+        '{'
+        '"focus_target": string,'
+        '"response_markdown": string,'
+        '"suggested_tasks": ['
+        '{'
+        '"title": string,'
+        '"why": string,'
+        '"duration_minutes": number,'
+        '"is_rest": boolean,'
+        '"cadence": "daily"|"weekly"|"monthly"|"one-off",'
+        '"frequency_detail": string,'
+        '"recommended_date": string (YYYY-MM-DD),'
+        '"slot_start": string,'
+        '"slot_end": string,'
+        '"recurrence_type": "none"|"daily"|"weekly"|"custom",'
+        '"recurrence_days": string,'
+        '"recurrence_end_date": string,'
+        '"tag": "P"|"S"|"W"|"R"|"B",'
+        '"priority": "L"|"M"|"H"|"U",'
+        '"note": string'
+        '}'
+        ']'
+        '}'
+    )
+
+    api_key = config('ANTHROPIC_API_KEY', default='').strip()
+    if Anthropic and api_key:
+        client = Anthropic(api_key=api_key)
+        prompt = {
+            'idea_title': idea.title,
+            'idea_description': idea.description,
+            'today': date.today().isoformat(),
+        }
+        response = client.messages.create(
+            model='claude-sonnet-4-6',
+            max_tokens=900,
+            temperature=0.4,
+            system=system_prompt,
+            messages=[
+                {
+                    'role': 'user',
+                    'content': f"Create a practical execution plan for this idea: {json.dumps(prompt, ensure_ascii=False)}",
+                }
+            ],
+        )
+        if response.content:
+            parsed = parse_zenai_json_response(response.content[0].text)
+            if parsed:
+                return {
+                    'focus_target': (parsed.get('focus_target') or '').strip(),
+                    'response_markdown': (parsed.get('response_markdown') or '').strip(),
+                    'suggested_tasks': normalize_suggested_tasks(parsed.get('suggested_tasks') or []),
+                }
+
+    return build_idea_breakdown_fallback(idea)
+
 def home(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
@@ -819,68 +944,70 @@ def daily_view(request, year, month, day):
     selected_date = date(year, month, day)
 
     ensure_recurring_tasks_for_date(request.user, selected_date)
-    
-    # Get or create journal entry for the day
-    journal_entry, created = JournalEntry.objects.get_or_create(
-        user=request.user,
-        date=selected_date,
-        defaults={'content': ''}
-    )
-    
+
     # Get or create daily mood
     daily_mood, mood_created = DailyMood.objects.get_or_create(
         user=request.user,
         date=selected_date,
         defaults={'mood': 'N', 'notes': ''}
     )
-    
-    # Handle journal form submission
-    if request.method == 'POST' and 'journal_content' in request.POST:
-        journal_form = JournalForm(request.POST, instance=journal_entry)
-        if journal_form.is_valid():
-            journal_form.save()
-            messages.success(request, 'Journal saved successfully!')
-            return redirect('daily_view', year=year, month=month, day=day)
-    else:
-        journal_form = JournalForm(instance=journal_entry)
-    
-    # Handle mood form submission
-    if request.method == 'POST' and 'mood' in request.POST:
-        mood_form = DailyMoodForm(request.POST, instance=daily_mood)
-        if mood_form.is_valid():
-            mood_form.save()
-            messages.success(request, 'Mood saved successfully!')
-            return redirect('daily_view', year=year, month=month, day=day)
-    else:
-        mood_form = DailyMoodForm(instance=daily_mood)
-    
-    # Handle task form submission
-    if request.method == 'POST' and 'task_title' in request.POST:
-        task_form = TaskForm(request.POST)
-        if task_form.is_valid():
-            task = task_form.save(commit=False)
-            task.user = request.user
-            task.date = selected_date
 
-            if task.recurrence_type != 'none':
-                task.is_recurring_template = True
-                task.save()
-                Task.objects.create(
-                    user=request.user,
-                    date=selected_date,
-                    title=task.title,
-                    tag=task.tag,
-                    priority=task.priority,
-                    is_rest=task.is_rest,
-                    recurrence_source=task,
-                )
-            else:
-                task.save()
+    journal_form = JournalForm()
+    mood_form = DailyMoodForm(instance=daily_mood)
+    task_form = TaskForm()
+    idea_form = IdeaForm()
 
-            messages.success(request, 'Task added successfully!')
-            return redirect('daily_view', year=year, month=month, day=day)
-    else:
-        task_form = TaskForm()
+    if request.method == 'POST':
+        if 'journal_content' in request.POST:
+            journal_form = JournalForm(request.POST)
+            if journal_form.is_valid():
+                entry = journal_form.save(commit=False)
+                entry.user = request.user
+                entry.date = selected_date
+                entry.save()
+                messages.success(request, 'Journal entry saved.')
+                return redirect('daily_view', year=year, month=month, day=day)
+
+        elif 'mood' in request.POST:
+            mood_form = DailyMoodForm(request.POST, instance=daily_mood)
+            if mood_form.is_valid():
+                mood_form.save()
+                messages.success(request, 'Mood saved successfully!')
+                return redirect('daily_view', year=year, month=month, day=day)
+
+        elif 'task_title' in request.POST:
+            task_form = TaskForm(request.POST)
+            if task_form.is_valid():
+                task = task_form.save(commit=False)
+                task.user = request.user
+                task.date = selected_date
+
+                if task.recurrence_type != 'none':
+                    task.is_recurring_template = True
+                    task.save()
+                    Task.objects.create(
+                        user=request.user,
+                        date=selected_date,
+                        title=task.title,
+                        tag=task.tag,
+                        priority=task.priority,
+                        is_rest=task.is_rest,
+                        recurrence_source=task,
+                    )
+                else:
+                    task.save()
+
+                messages.success(request, 'Task added successfully!')
+                return redirect('daily_view', year=year, month=month, day=day)
+
+        elif 'idea_title' in request.POST:
+            idea_form = IdeaForm(request.POST)
+            if idea_form.is_valid():
+                idea = idea_form.save(commit=False)
+                idea.user = request.user
+                idea.save()
+                messages.success(request, 'Idea saved from daily view.')
+                return redirect('daily_view', year=year, month=month, day=day)
     
     # Get tasks for the day with related data
     tasks = Task.objects.filter(
@@ -904,8 +1031,13 @@ def daily_view(request, year, month, day):
     context = {
         'selected_date': selected_date,
         'journal_form': journal_form,
+        'journal_entries': JournalEntry.objects.filter(
+            user=request.user,
+            date=selected_date,
+        ).order_by('-created_at')[:20],
         'mood_form': mood_form,
         'task_form': task_form,
+        'idea_form': idea_form,
         'tasks': tasks,
         'carried_over_tasks': carried_over_tasks,
         'prev_date': prev_date,
@@ -914,6 +1046,38 @@ def daily_view(request, year, month, day):
     }
     
     return render(request, 'core/daily_view.html', context)
+
+
+@login_required
+def daily_journal_editor(request, year, month, day):
+    selected_date = date(year, month, day)
+
+    if request.method == 'POST' and 'journal_content' in request.POST:
+        form = JournalForm(request.POST)
+        if form.is_valid():
+            entry = form.save(commit=False)
+            entry.user = request.user
+            entry.date = selected_date
+            entry.save()
+            messages.success(request, 'Journal entry saved.')
+
+            if request.POST.get('continue_editing') == '1':
+                return redirect('daily_journal_editor', year=year, month=month, day=day)
+            return redirect('daily_view', year=year, month=month, day=day)
+    else:
+        form = JournalForm()
+
+    context = {
+        'selected_date': selected_date,
+        'form': form,
+        'prev_date': selected_date - timedelta(days=1),
+        'next_date': selected_date + timedelta(days=1),
+        'recent_entries': JournalEntry.objects.filter(
+            user=request.user,
+            date=selected_date,
+        ).order_by('-created_at')[:20],
+    }
+    return render(request, 'core/daily_journal_editor.html', context)
 
 @login_required
 @require_POST
@@ -1340,6 +1504,7 @@ def ideas_board(request):
         'form': form,
         'ideas': ideas,
         'converted_ideas': converted_ideas,
+        'today': date.today(),
     }
     return render(request, 'core/ideas_board.html', context)
 
@@ -1382,6 +1547,29 @@ def delete_idea(request, idea_id):
     idea = get_object_or_404(Idea, id=idea_id, user=request.user)
     idea.delete()
     return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def idea_ai_breakdown(request, idea_id):
+    idea = get_object_or_404(Idea, id=idea_id, user=request.user)
+
+    payload = generate_idea_breakdown_reply(idea)
+
+    focus_target = payload.get('focus_target', '').strip()
+    if not focus_target:
+        focus_target = strip_tags(idea.title)[:120]
+
+    return JsonResponse({
+        'success': True,
+        'idea': {
+            'id': idea.id,
+            'title': idea.title,
+        },
+        'focus_target': focus_target,
+        'response_markdown': payload.get('response_markdown', '').strip(),
+        'suggested_tasks': payload.get('suggested_tasks', []),
+    })
 
 
 # Goal views

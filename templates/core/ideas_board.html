@@ -37,10 +37,20 @@
                             class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded">
                         Convert to Task
                     </button>
+                    <button onclick="breakdownIdea({{ idea.id }}, '{{ idea.title|escapejs }}')"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1 rounded">
+                        AI Breakdown
+                    </button>
                     <button onclick="deleteIdea({{ idea.id }})" 
                             class="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded">
                         Delete
                     </button>
+                </div>
+
+                <div id="idea-breakdown-{{ idea.id }}" class="hidden mt-4 rounded-md border border-indigo-200 bg-indigo-50 p-3 space-y-2">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700" id="idea-breakdown-focus-{{ idea.id }}"></p>
+                    <p class="text-xs text-indigo-900 whitespace-pre-line" id="idea-breakdown-response-{{ idea.id }}"></p>
+                    <div class="space-y-2" id="idea-breakdown-tasks-{{ idea.id }}"></div>
                 </div>
             </div>
             {% empty %}
@@ -107,6 +117,108 @@
 
 <script>
 let selectedIdeaId = null;
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function getTaskCardHtml(ideaId, task) {
+    const badges = [];
+    badges.push(`<span class="rounded-full border border-gray-200 bg-white px-2 py-0.5">${escapeHtml(task.tag || 'W')} · ${escapeHtml(task.priority || 'M')}</span>`);
+    if (task.duration_minutes) {
+        badges.push(`<span class="rounded-full border border-indigo-200 bg-indigo-100 px-2 py-0.5 text-indigo-700">${escapeHtml(task.duration_minutes)} min</span>`);
+    }
+
+    return `
+        <div class="rounded-md border border-indigo-100 bg-white p-2">
+            <p class="text-sm font-medium text-gray-900">${escapeHtml(task.title || '')}</p>
+            <p class="text-xs text-gray-600 mt-1">${escapeHtml(task.why || '')}</p>
+            <div class="mt-2 flex flex-wrap gap-1 text-[11px] text-gray-600">
+                ${badges.join('')}
+            </div>
+            <button
+                onclick='addIdeaTask(${ideaId}, ${JSON.stringify(task).replace(/'/g, "&#39;")})'
+                class="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded"
+            >Add to calendar</button>
+        </div>
+    `;
+}
+
+function breakdownIdea(ideaId, ideaTitle) {
+    const panel = document.getElementById(`idea-breakdown-${ideaId}`);
+    const focusEl = document.getElementById(`idea-breakdown-focus-${ideaId}`);
+    const responseEl = document.getElementById(`idea-breakdown-response-${ideaId}`);
+    const tasksEl = document.getElementById(`idea-breakdown-tasks-${ideaId}`);
+
+    panel.classList.remove('hidden');
+    focusEl.textContent = 'Thinking...';
+    responseEl.textContent = '';
+    tasksEl.innerHTML = '';
+
+    fetch(`/idea/${ideaId}/breakdown/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            focusEl.textContent = 'Could not generate breakdown';
+            responseEl.textContent = data.error || 'Please try again.';
+            return;
+        }
+
+        focusEl.textContent = data.focus_target || `Focus: ${ideaTitle}`;
+        responseEl.textContent = data.response_markdown || '';
+
+        const tasks = Array.isArray(data.suggested_tasks) ? data.suggested_tasks : [];
+        if (tasks.length === 0) {
+            tasksEl.innerHTML = '<p class="text-xs text-gray-500">No tasks suggested.</p>';
+            return;
+        }
+
+        tasksEl.innerHTML = tasks.map((task) => getTaskCardHtml(ideaId, task)).join('');
+    })
+    .catch(() => {
+        focusEl.textContent = 'Could not generate breakdown';
+        responseEl.textContent = 'Network error. Please try again.';
+    });
+}
+
+function addIdeaTask(ideaId, task) {
+    const payload = {
+        ...task,
+        recommended_date: task.recommended_date || '{{ today|date:"Y-m-d" }}'
+    };
+
+    fetch('{% url "zenai_add_suggested_task" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Added: ${data.task.title}`);
+            return;
+        }
+        alert(data.error || 'Could not add task.');
+    })
+    .catch(() => {
+        alert('Network error while adding task.');
+    });
+}
 
 function convertToTask(ideaId) {
     selectedIdeaId = ideaId;

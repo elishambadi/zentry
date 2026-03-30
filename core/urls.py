@@ -7,6 +7,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('preferences/', views.preferences_view, name='preferences'),
     path('day/<int:year>/<int:month>/<int:day>/', views.daily_view, name='daily_view'),
+    path('day/<int:year>/<int:month>/<int:day>/journal/', views.daily_journal_editor, name='daily_journal_editor'),
     path('calendar/', views.calendar_view, name='calendar'),
     path('review/weekly/', views.weekly_review, name='weekly_review'),
     path('review/monthly/', views.monthly_review, name='monthly_review'),
@@ -41,6 +42,7 @@ urlpatterns = [
     
     # Ideas board
     path('ideas/', views.ideas_board, name='ideas_board'),
+    path('idea/<int:idea_id>/breakdown/', views.idea_ai_breakdown, name='idea_ai_breakdown'),
     path('idea/convert/<int:idea_id>/', views.convert_idea_to_task, name='convert_idea_to_task'),
     path('idea/delete/<int:idea_id>/', views.delete_idea, name='delete_idea'),
     

@@ -83,14 +83,6 @@
         </aside>
 
         <div class="ml-16">
-            {% if messages %}
-            <div class="px-6 pt-6">
-                {% for message in messages %}
-                <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-md mb-4 fade-in">{{ message }}</div>
-                {% endfor %}
-            </div>
-            {% endif %}
-
             <main class="px-6 py-8">
     {% else %}
     <main class="h-full">
@@ -731,9 +723,49 @@
             from { opacity: 1; transform: translateX(0); }
             to { opacity: 0; transform: translateX(-20px); }
         }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(8px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 0; transform: translateY(8px) scale(0.98); }
+        }
+
+        .toast-enter {
+            animation: toastIn 0.18s ease-out;
+        }
+
+        .toast-exit {
+            animation: toastOut 0.2s ease-in forwards;
+        }
     </style>
 
+    {% if messages %}
+    <div id="toast-stack" class="fixed right-4 bottom-4 z-[90] space-y-2 w-[min(92vw,22rem)] pointer-events-none">
+        {% for message in messages %}
+        <div class="toast-enter pointer-events-auto rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 shadow-sm px-4 py-3 text-sm flex items-start gap-2">
+            <span class="mt-0.5">✓</span>
+            <p class="leading-relaxed">{{ message }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const toasts = Array.from(document.querySelectorAll('#toast-stack > div'));
+            toasts.forEach((toast, index) => {
+                const delay = 2400 + index * 220;
+                setTimeout(() => {
+                    toast.classList.add('toast-exit');
+                    setTimeout(() => toast.remove(), 220);
+                }, delay);
+            });
+        });
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })

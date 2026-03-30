@@ -214,8 +214,7 @@ class JournalEntry(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ['user', 'date']
-        ordering = ['-date']
+        ordering = ['-date', '-created_at']
     
     def __str__(self):
         return f"Journal - {self.user.username} - {self.date}"
