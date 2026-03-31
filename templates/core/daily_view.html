@@ -73,6 +73,32 @@
                             <button onclick="deleteTask({{ task.id }})" class="text-xs text-red-500 hover:text-red-700">Delete</button>
                         </div>
                     </div>
+
+                    <!-- Subtasks -->
+                    <div class="mt-2 ml-7" id="subtasks-{{ task.id }}">
+                        {% for subtask in task.subtasks.all %}
+                        <div class="flex items-center gap-2 py-1" id="subtask-row-{{ subtask.id }}">
+                            <input type="checkbox" {% if subtask.completed %}checked{% endif %}
+                                   onchange="toggleSubtask({{ subtask.id }})"
+                                   class="h-3.5 w-3.5 rounded border-gray-300 text-primary-600">
+                            <span class="flex-1 text-xs {% if subtask.completed %}line-through text-gray-400{% else %}text-gray-700{% endif %}"
+                                  id="subtask-label-{{ subtask.id }}">{{ subtask.title }}</span>
+                            <button onclick="deleteSubtask({{ subtask.id }}, {{ task.id }})"
+                                    class="text-[10px] text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100">✕</button>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Add subtask inline form -->
+                    <div class="mt-1 ml-7 flex items-center gap-2">
+                        <input type="text"
+                               id="new-subtask-{{ task.id }}"
+                               placeholder="+ Add subtask"
+                               class="flex-1 text-xs border-0 border-b border-gray-200 focus:border-primary-400 focus:ring-0 bg-transparent py-0.5 text-gray-700 placeholder-gray-300 outline-none"
+                               onkeydown="if(event.key==='Enter'){event.preventDefault();addSubtask({{ task.id }});}">
+                        <button onclick="addSubtask({{ task.id }})"
+                                class="text-[10px] text-primary-600 hover:text-primary-800 font-medium">Add</button>
+                    </div>
                 </div>
                 {% empty %}
                 <p class="text-sm text-gray-400 text-center py-8">No tasks yet — add one above.</p>
@@ -154,6 +180,64 @@ function carryTask(taskId) {
     .then(data => {
         if (data.success) location.reload();
         else alert(data.error || 'Could not carry task forward');
+    });
+}
+
+function addSubtask(taskId) {
+    const input = document.getElementById(`new-subtask-${taskId}`);
+    const title = (input.value || '').trim();
+    if (!title) return;
+    fetch(`/task/${taskId}/subtask/add/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `title=${encodeURIComponent(title)}`,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) return;
+        const st = data.subtask;
+        const container = document.getElementById(`subtasks-${taskId}`);
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2 py-1 group';
+        row.id = `subtask-row-${st.id}`;
+        row.innerHTML = `
+            <input type="checkbox" onchange="toggleSubtask(${st.id})"
+                   class="h-3.5 w-3.5 rounded border-gray-300 text-primary-600">
+            <span class="flex-1 text-xs text-gray-700" id="subtask-label-${st.id}">${st.title}</span>
+            <button onclick="deleteSubtask(${st.id}, ${taskId})"
+                    class="text-[10px] text-red-400 hover:text-red-600">✕</button>`;
+        container.appendChild(row);
+        input.value = '';
+        input.focus();
+    });
+}
+
+function toggleSubtask(subtaskId) {
+    fetch(`/subtask/toggle/${subtaskId}/`, { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' } })
+    .then(r => r.json())
+    .then(data => {
+        const label = document.getElementById(`subtask-label-${subtaskId}`);
+        const cb = document.querySelector(`#subtask-row-${subtaskId} input[type=checkbox]`);
+        if (data.completed) {
+            label.classList.add('line-through', 'text-gray-400');
+            label.classList.remove('text-gray-700');
+            cb.checked = true;
+        } else {
+            label.classList.remove('line-through', 'text-gray-400');
+            label.classList.add('text-gray-700');
+            cb.checked = false;
+        }
+    });
+}
+
+function deleteSubtask(subtaskId, taskId) {
+    fetch(`/subtask/delete/${subtaskId}/`, { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' } })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const row = document.getElementById(`subtask-row-${subtaskId}`);
+            if (row) row.remove();
+        }
     });
 }
 </script>
