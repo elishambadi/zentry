@@ -7,10 +7,8 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-RUN chmod +x /app/entrypoint.sh
-
 RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
-CMD ["/app/entrypoint.sh"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "coretrack.wsgi:application"]
