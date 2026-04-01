@@ -12,11 +12,6 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name='task',
-            name='is_rest',
-            field=models.BooleanField(default=False),
-        ),
-        migrations.AddField(
-            model_name='task',
             name='recurrence_type',
             field=models.CharField(
                 choices=[
