@@ -13,34 +13,103 @@
         <a href="{% url 'daily_view' next_date.year next_date.month next_date.day %}" class="text-sm text-gray-500 hover:text-gray-900">Next →</a>
     </div>
 
+    <!-- Add Task Slide-in Panel -->
+    <div id="add-task-overlay" class="fixed inset-0 bg-black/30 z-40 hidden" onclick="closeTaskPanel()"></div>
+    <aside id="add-task-panel"
+           class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h2 class="text-base font-semibold text-gray-900">Add Task</h2>
+            <button onclick="closeTaskPanel()" class="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-5 py-4">
+            <form method="post" id="add-task-form" class="space-y-4">
+                {% csrf_token %}
+
+                <!-- Title -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Task title <span class="text-red-400">*</span></label>
+                    <input type="text" name="title" id="id_title" required autofocus
+                           class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+                           placeholder="What needs to get done?">
+                </div>
+
+                <!-- Tag + Priority row -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Category</label>
+                        {{ task_form.tag }}
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Priority</label>
+                        {{ task_form.priority }}
+                    </div>
+                </div>
+
+                <!-- Rest task toggle -->
+                <div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-100">
+                    {{ task_form.is_rest }}
+                    <div>
+                        <p class="text-xs font-medium text-emerald-800">Rest task</p>
+                        <p class="text-[11px] text-emerald-600">Low-effort, recovery-focused</p>
+                    </div>
+                </div>
+
+                <!-- Recurrence toggle -->
+                <div>
+                    <button type="button" id="recurrence-toggle-btn"
+                            onclick="toggleRecurrencePanel()"
+                            class="flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                        <span id="recurrence-chevron" class="text-base leading-none">▸</span>
+                        <span>Set recurrence</span>
+                    </button>
+
+                    <!-- Recurrence section — hidden by default -->
+                    <div id="recurrence-panel" class="hidden mt-3 space-y-3 rounded-lg bg-indigo-50 border border-indigo-100 p-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Repeat</label>
+                            {{ task_form.recurrence_type }}
+                        </div>
+
+                        <!-- Custom weekday picker — shown only for 'custom' -->
+                        <div id="custom-days-section" class="hidden">
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Repeat on</label>
+                            <div class="flex flex-wrap gap-1.5">
+                                {% for choice in task_form.recurrence_days %}
+                                <label class="flex items-center gap-1 px-2 py-1 rounded-md border border-indigo-200 bg-white text-xs cursor-pointer hover:bg-indigo-100 transition-colors">
+                                    {{ choice.tag }} <span>{{ choice.choice_label }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- End date — hidden when recurrence_type is 'none' -->
+                        <div id="end-date-section">
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Ends on <span class="font-normal text-gray-400">(optional)</span></label>
+                            {{ task_form.recurrence_end_date }}
+                            <p class="mt-1 text-[11px] text-gray-400">Leave blank to recur indefinitely.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <button type="submit" name="task_title"
+                        class="w-full bg-primary-600 hover:bg-primary-700 text-white rounded-lg py-2.5 text-sm font-medium transition-colors">
+                    Add Task
+                </button>
+            </form>
+        </div>
+    </aside>
+
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <section class="xl:col-span-2 bg-white border border-gray-200 rounded-xl p-5">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-lg font-semibold text-gray-900">My Tasks</h2>
-                <span class="text-xs text-gray-400">Focus mode</span>
+                <button onclick="openTaskPanel()"
+                        class="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
+                    <span class="text-base leading-none">+</span> Add Task
+                </button>
             </div>
-
-            <form method="post" class="mb-5 space-y-2">
-                {% csrf_token %}
-                <div>{{ task_form.title }}</div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <div>{{ task_form.tag }}</div>
-                    <div>{{ task_form.priority }}</div>
-                    <div class="flex items-center gap-2 border border-gray-200 rounded-md px-3">
-                        {{ task_form.is_rest }}
-                        <span class="text-xs text-gray-600">Rest task</span>
-                    </div>
-                    <div>{{ task_form.recurrence_type }}</div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div class="border border-gray-200 rounded-md px-3 py-2">
-                        <p class="text-[11px] text-gray-500 mb-1">Custom repeat days</p>
-                        <div class="flex flex-wrap gap-2 text-xs">{{ task_form.recurrence_days }}</div>
-                    </div>
-                    <div>{{ task_form.recurrence_end_date }}</div>
-                </div>
-                <button type="submit" name="task_title" class="w-full bg-primary-600 hover:bg-primary-700 text-white rounded-md py-2 text-sm">Add Task</button>
-            </form>
 
             {% if carried_over_tasks %}
             <div class="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3">
@@ -64,7 +133,12 @@
                                 <span class="px-2 py-0.5 rounded-full {{ task.get_tag_color }}">{{ task.get_tag_display }}</span>
                                 <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ task.get_priority_display }}</span>
                                 {% if task.is_rest %}<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Rest</span>{% endif %}
-                                {% if task.recurrence_source %}<span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Recurring</span>{% endif %}
+                                {% if task.recurrence_source %}
+                                <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">↻ Recurring</span>
+                                {% if task.recurrence_source.recurrence_end_date %}
+                                <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">ends {{ task.recurrence_source.recurrence_end_date|date:"M j" }}</span>
+                                {% endif %}
+                                {% endif %}
                             </div>
                         </div>
                         <div class="flex items-center gap-1 opacity-70 group-hover:opacity-100">
@@ -101,7 +175,7 @@
                     </div>
                 </div>
                 {% empty %}
-                <p class="text-sm text-gray-400 text-center py-8">No tasks yet — add one above.</p>
+                <p class="text-sm text-gray-400 text-center py-8">No tasks yet — tap <strong>+ Add Task</strong> to get started.</p>
                 {% endfor %}
             </div>
         </section>
@@ -161,6 +235,44 @@
 </div>
 
 <script>
+// ── Add Task Panel ──────────────────────────────────────────
+function openTaskPanel() {
+    document.getElementById('add-task-panel').classList.remove('translate-x-full');
+    document.getElementById('add-task-overlay').classList.remove('hidden');
+    setTimeout(() => document.getElementById('id_title').focus(), 300);
+}
+function closeTaskPanel() {
+    document.getElementById('add-task-panel').classList.add('translate-x-full');
+    document.getElementById('add-task-overlay').classList.add('hidden');
+}
+// Open the panel automatically if the form had a validation error (POST back)
+(function() {
+    const form = document.getElementById('add-task-form');
+    if (form && form.querySelector('.errorlist')) openTaskPanel();
+})();
+
+// ── Recurrence progressive disclosure ───────────────────────
+function toggleRecurrencePanel() {
+    const panel = document.getElementById('recurrence-panel');
+    const chevron = document.getElementById('recurrence-chevron');
+    const hidden = panel.classList.toggle('hidden');
+    chevron.textContent = hidden ? '▸' : '▾';
+}
+
+const recurrenceSelect = document.getElementById('id_recurrence_type');
+if (recurrenceSelect) {
+    recurrenceSelect.addEventListener('change', syncRecurrenceUI);
+    syncRecurrenceUI();
+}
+function syncRecurrenceUI() {
+    const val = recurrenceSelect ? recurrenceSelect.value : 'none';
+    const customSection = document.getElementById('custom-days-section');
+    const endSection = document.getElementById('end-date-section');
+    if (customSection) customSection.classList.toggle('hidden', val !== 'custom');
+    if (endSection) endSection.classList.toggle('hidden', val === 'none');
+}
+
+// ── Task actions ─────────────────────────────────────────────
 function toggleTask(taskId) {
     fetch(`/task/toggle/${taskId}/`, { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' } })
     .then(() => location.reload());
@@ -183,6 +295,7 @@ function carryTask(taskId) {
     });
 }
 
+// ── Subtask actions ──────────────────────────────────────────
 function addSubtask(taskId) {
     const input = document.getElementById(`new-subtask-${taskId}`);
     const title = (input.value || '').trim();

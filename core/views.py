@@ -1580,7 +1580,8 @@ def calendar_view(request):
     
     tasks = Task.objects.filter(
         user=request.user,
-        date__range=[start_date, end_date]
+        date__range=[start_date, end_date],
+        is_recurring_template=False,
     ).values('date').annotate(
         total=Count('id'),
         completed=Count('id', filter=Q(completed=True))
@@ -1588,9 +1589,16 @@ def calendar_view(request):
 
     task_rows = Task.objects.filter(
         user=request.user,
-        date__range=[start_date, end_date]
+        date__range=[start_date, end_date],
+        is_recurring_template=False,
     ).values('date', 'title', 'completed', 'tag', 'priority').order_by('date', 'created_at')
-    
+
+    # Recurring templates — project onto each day of the month they recur on
+    recurring_templates = Task.objects.filter(
+        user=request.user,
+        is_recurring_template=True,
+    ).exclude(recurrence_type='none')
+
     journals = JournalEntry.objects.filter(
         user=request.user,
         date__range=[start_date, end_date]
@@ -1606,7 +1614,31 @@ def calendar_view(request):
             'completed': item['completed'],
             'tag': item['tag'],
             'priority': item['priority'],
+            'recurring': False,
         })
+
+    # Inject recurring occurrences into task_lines (shown as projected, not completed)
+    current = start_date
+    while current <= end_date:
+        for tmpl in recurring_templates:
+            if tmpl.recurs_on(current):
+                key = current.isoformat()
+                # Avoid doubling if a real instance already exists for this day
+                already = Task.objects.filter(
+                    user=request.user,
+                    date=current,
+                    recurrence_source=tmpl,
+                ).exists()
+                if not already:
+                    task_lines.setdefault(key, []).append({
+                        'title': tmpl.title,
+                        'completed': False,
+                        'tag': tmpl.tag,
+                        'priority': tmpl.priority,
+                        'recurring': True,
+                    })
+        current += timedelta(days=1)
+
     journal_dates = set(journals)
 
     calendar_cells = []
