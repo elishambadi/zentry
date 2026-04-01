@@ -76,7 +76,22 @@ class TaskForm(forms.ModelForm):
         return instance
 
 
+EDIT_SCOPE_CHOICES = [
+    ('this_only',       'This task only'),
+    ('this_and_future', 'This and all future occurrences'),
+    ('all',             'All occurrences (past and future)'),
+]
+
+
 class TaskEditForm(TaskForm):
+    edit_scope = forms.ChoiceField(
+        choices=EDIT_SCOPE_CHOICES,
+        initial='this_only',
+        required=False,
+        widget=forms.RadioSelect(attrs={'class': 'mr-2'}),
+        label='Apply changes to',
+    )
+
     class Meta(TaskForm.Meta):
         fields = ['title', 'tag', 'priority', 'date', 'is_rest', 'recurrence_type', 'recurrence_days', 'recurrence_end_date']
         widgets = {

@@ -1821,18 +1821,83 @@ def monthly_review(request):
 @login_required
 def edit_task(request, task_id):
     task = get_object_or_404(Task, id=task_id, user=request.user)
+
+    # Determine the template and whether this task is part of a recurring series.
+    # A task is "in a series" if it IS the template or is an instance spawned from one.
+    template = None
+    if task.is_recurring_template:
+        template = task
+    elif task.recurrence_source_id:
+        template = task.recurrence_source
+
+    is_recurring = template is not None
+
     if request.method == 'POST':
         form = TaskEditForm(request.POST, instance=task)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Task updated successfully!')
+            scope = form.cleaned_data.get('edit_scope') or 'this_only'
+
+            # Fields that get propagated to instances (everything except date).
+            PROPAGATED_FIELDS = ['title', 'tag', 'priority', 'is_rest']
+            # Fields that also update the template's recurrence settings.
+            RECURRENCE_FIELDS = ['recurrence_type', 'recurrence_days', 'recurrence_end_date']
+
+            if not is_recurring or scope == 'this_only':
+                # ── Edit this task only ──────────────────────────────────────────
+                # If this is a recurring instance, detach it so it becomes its own
+                # standalone task (no longer follows the template).
+                saved = form.save(commit=False)
+                if task.recurrence_source_id and scope == 'this_only':
+                    saved.recurrence_source = None
+                    # Keep it non-template so it doesn't spawn new instances.
+                    saved.is_recurring_template = False
+                    saved.recurrence_type = 'none'
+                    saved.recurrence_days = ''
+                    saved.recurrence_end_date = None
+                saved.save()
+                messages.success(request, 'Task updated (this occurrence only).')
+
+            elif scope in ('this_and_future', 'all'):
+                # ── Propagate to template + a subset of instances ────────────────
+                # Step 1: save the edited task normally.
+                form.save()
+
+                # Step 2: update the template's shared fields & recurrence settings.
+                if template:
+                    for field in PROPAGATED_FIELDS + RECURRENCE_FIELDS:
+                        setattr(template, field, getattr(task, field))
+                    # Re-derive recurrence_days string (form.save already stored it on task).
+                    template.recurrence_days = task.recurrence_days
+                    template.save(update_fields=PROPAGATED_FIELDS + RECURRENCE_FIELDS)
+
+                # Step 3: find all instances to update.
+                if template:
+                    instances_qs = Task.objects.filter(
+                        user=request.user,
+                        recurrence_source=template,
+                    ).exclude(pk=task.pk)   # already saved above
+
+                    if scope == 'this_and_future':
+                        instances_qs = instances_qs.filter(date__gte=task.date)
+
+                    # Bulk-update shared fields (keep each instance's own date).
+                    update_kwargs = {
+                        field: getattr(task, field)
+                        for field in PROPAGATED_FIELDS
+                    }
+                    instances_qs.update(**update_kwargs)
+
+                label = 'this and all future occurrences' if scope == 'this_and_future' else 'all occurrences'
+                messages.success(request, f'Task updated for {label}.')
+
             return redirect('daily_view', year=task.date.year, month=task.date.month, day=task.date.day)
     else:
         form = TaskEditForm(instance=task)
-    
+
     context = {
         'form': form,
         'task': task,
+        'is_recurring': is_recurring,
     }
     return render(request, 'core/edit_task.html', context)
 
