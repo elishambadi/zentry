@@ -1,381 +1,489 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto">
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h1 class="text-3xl font-bold text-gray-800 mb-6">💡 Ideas Board</h1>
-        
-        <!-- Add New Idea -->
-        <form method="post" class="mb-8">
-            {% csrf_token %}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="md:col-span-2">
-                    {{ form.title }}
-                </div>
-                <div>
-                    <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md">
-                        Add Idea
-                    </button>
-                </div>
-            </div>
-            <div class="mt-4">
-                {{ form.description }}
-            </div>
-        </form>
-        
-        <!-- Active Ideas -->
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Active Ideas</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-            {% for idea in ideas %}
-            <div class="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
-                <h3 class="font-bold text-lg text-gray-800 mb-2">{{ idea.title }}</h3>
-                {% if idea.description %}
-                <p class="text-gray-600 text-sm mb-4">{{ idea.description }}</p>
-                {% endif %}
-                <div class="flex space-x-2">
-                    <button onclick="convertToTask({{ idea.id }})" 
-                            class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded">
-                        Convert to Task
-                    </button>
-                    <button onclick="breakdownIdea({{ idea.id }}, '{{ idea.title|escapejs }}')"
-                            class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1 rounded">
-                        AI Breakdown
-                    </button>
-                    <button onclick="deleteIdea({{ idea.id }})" 
-                            class="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded">
-                        Delete
-                    </button>
-                </div>
+{# ── Full-height two-column shell ──────────────────────────────────────────── #}
+<div class="flex h-[calc(100vh-4rem)] -mx-6 -mt-8 overflow-hidden">
 
-                <div id="idea-breakdown-{{ idea.id }}" class="hidden mt-4 rounded-md border border-indigo-200 bg-indigo-50 p-3 space-y-3">
-                    <div class="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide">
-                        <span id="idea-breakdown-step1-badge-{{ idea.id }}" class="rounded-full bg-indigo-600 px-2 py-1 text-white">Step 1 · Clarify</span>
-                        <span id="idea-breakdown-step2-badge-{{ idea.id }}" class="rounded-full bg-white px-2 py-1 text-indigo-700 border border-indigo-200">Step 2 · Tasks</span>
-                    </div>
+  {# ── LEFT SIDEBAR ─────────────────────────────────────────────────────────── #}
+  <aside class="w-72 shrink-0 flex flex-col border-r border-gray-100 bg-white overflow-hidden">
 
-                    <div id="idea-breakdown-question-step-{{ idea.id }}" class="space-y-2">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">High-signal question</p>
-                        <p class="text-xs text-indigo-900 whitespace-pre-line" id="idea-breakdown-response-{{ idea.id }}"></p>
-                        <div class="rounded-md border border-indigo-100 bg-white p-3">
-                            <p class="text-sm font-medium text-gray-900" id="idea-breakdown-question-{{ idea.id }}"></p>
-                            <label for="idea-breakdown-answer-{{ idea.id }}" class="mt-3 block text-xs font-medium text-gray-700">Your answer</label>
-                            <textarea
-                                id="idea-breakdown-answer-{{ idea.id }}"
-                                rows="3"
-                                class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                                placeholder="Answer the clarifying question with the exact deliverable, tools, stack, or environment."
-                            ></textarea>
-                            <div class="mt-3 flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onclick="generateIdeaTasks({{ idea.id }}, '{{ idea.title|escapejs }}')"
-                                    class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-2 rounded"
-                                >Generate tasks</button>
-                                <p class="text-[11px] text-gray-500">This step is required before tasks are shown.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="idea-breakdown-task-step-{{ idea.id }}" class="hidden space-y-2">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700" id="idea-breakdown-focus-{{ idea.id }}"></p>
-                        <p class="text-xs text-indigo-900 whitespace-pre-line" id="idea-breakdown-task-response-{{ idea.id }}"></p>
-                        <p class="text-[11px] text-gray-500" id="idea-breakdown-task-count-{{ idea.id }}"></p>
-                        <div class="space-y-2" id="idea-breakdown-tasks-{{ idea.id }}"></div>
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <p class="text-gray-500 col-span-full">No ideas yet. Add your first idea above!</p>
-            {% endfor %}
+    {# Header + add form #}
+    <div class="px-4 pt-5 pb-3 border-b border-gray-100">
+      <h1 class="text-base font-semibold text-gray-800 mb-3">💡 Ideas Board</h1>
+      <form method="post" id="addIdeaForm">
+        {% csrf_token %}
+        <div class="flex gap-2 mb-2">
+          {{ form.title }}
+          <button type="submit"
+                  class="shrink-0 bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-1.5 rounded-md font-medium">
+            Add
+          </button>
         </div>
-        
-        <!-- Converted Ideas -->
-        {% if converted_ideas %}
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Converted to Tasks</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {% for idea in converted_ideas %}
-            <div class="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-                <h3 class="font-bold text-lg text-gray-800 mb-2">{{ idea.title }}</h3>
-                <p class="text-sm text-green-600">✓ Converted to: {{ idea.task.title }}</p>
-                <a href="{% url 'daily_view' idea.task.date.year idea.task.date.month idea.task.date.day %}" 
-                   class="text-blue-500 hover:underline text-sm">
-                    View Task
-                </a>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
+        {{ form.description }}
+      </form>
     </div>
+
+    {# Active ideas list #}
+    <div class="flex-1 overflow-y-auto">
+      {% if ideas %}
+      <p class="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Active</p>
+      <ul class="divide-y divide-gray-50" id="ideaList">
+        {% for idea in ideas %}
+        <li>
+          <button
+            onclick="selectIdea({{ idea.id }}, '{{ idea.title|escapejs }}')"
+            id="idea-sidebar-btn-{{ idea.id }}"
+            class="w-full text-left px-4 py-3 hover:bg-yellow-50 transition-colors group"
+          >
+            <p class="text-sm font-medium text-gray-800 truncate group-hover:text-yellow-700">{{ idea.title }}</p>
+            {% if idea.description %}
+            <p class="text-xs text-gray-400 truncate mt-0.5">{{ idea.description }}</p>
+            {% endif %}
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="px-4 pt-6 text-xs text-gray-400 text-center">No ideas yet.<br>Add your first one above!</p>
+      {% endif %}
+
+      {% if converted_ideas %}
+      <p class="px-4 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Converted</p>
+      <ul class="divide-y divide-gray-50">
+        {% for idea in converted_ideas %}
+        <li class="px-4 py-3 flex items-start gap-2">
+          <span class="mt-0.5 text-green-500 text-xs shrink-0">✓</span>
+          <div class="min-w-0">
+            <p class="text-sm text-gray-500 truncate">{{ idea.title }}</p>
+            <a href="{% url 'daily_view' idea.task.date.year idea.task.date.month idea.task.date.day %}"
+               class="text-xs text-blue-500 hover:underline">View task →</a>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  </aside>
+
+  {# ── MAIN CONTENT PANEL ───────────────────────────────────────────────────── #}
+  <main class="flex-1 overflow-y-auto bg-gray-50 p-6" id="ideaMain">
+
+    {# Empty state — shown until an idea is selected #}
+    <div id="ideaEmptyState" class="flex flex-col items-center justify-center h-full text-center text-gray-400">
+      <span class="text-5xl mb-4">💡</span>
+      <p class="text-sm font-medium text-gray-500">Select an idea from the sidebar</p>
+      <p class="text-xs mt-1">to convert it to tasks or run an AI breakdown.</p>
+    </div>
+
+    {# Active idea workspace — hidden until an idea is selected #}
+    <div id="ideaWorkspace" class="hidden max-w-2xl mx-auto space-y-6">
+
+      {# Idea header #}
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Idea</p>
+          <h2 class="text-xl font-bold text-gray-900" id="ws-title"></h2>
+          <p class="text-sm text-gray-500 mt-1" id="ws-description"></p>
+        </div>
+        <div class="flex gap-2 shrink-0">
+          <button onclick="openConvertModal()"
+                  class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md font-medium">
+            Convert to Task
+          </button>
+          <button onclick="deleteCurrentIdea()"
+                  class="text-xs bg-red-100 hover:bg-red-200 text-red-600 px-3 py-1.5 rounded-md font-medium">
+            Delete
+          </button>
+        </div>
+      </div>
+
+      {# AI Breakdown card #}
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+
+        {# Step progress bar #}
+        <div class="flex border-b border-gray-100">
+          <div id="ws-step1-tab"
+               class="flex-1 py-3 text-center text-xs font-semibold border-b-2 border-indigo-600 text-indigo-700 bg-indigo-50 transition-colors">
+            Step 1 · Clarify
+          </div>
+          <div id="ws-step2-tab"
+               class="flex-1 py-3 text-center text-xs font-semibold border-b-2 border-transparent text-gray-400 transition-colors">
+            Step 2 · Generate Tasks
+          </div>
+        </div>
+
+        {# Step 1: clarifying question #}
+        <div id="ws-step1" class="p-5 space-y-4">
+          <div id="ws-idle" class="flex flex-col items-center py-8 text-center text-gray-400">
+            <span class="text-3xl mb-3">🤖</span>
+            <p class="text-sm text-gray-500 font-medium">Ready to break down this idea</p>
+            <p class="text-xs mt-1 mb-4">ZenAI will ask one sharp question to unlock a concrete task plan.</p>
+            <button onclick="runBreakdown()"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-5 py-2 rounded-lg font-medium">
+              ✨ Start AI Breakdown
+            </button>
+          </div>
+
+          <div id="ws-loading" class="hidden flex flex-col items-center py-10 text-gray-400">
+            <svg class="animate-spin h-6 w-6 text-indigo-500 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+            </svg>
+            <p class="text-sm" id="ws-loading-label">Generating clarifying question…</p>
+          </div>
+
+          <div id="ws-question-block" class="hidden space-y-3">
+            <div class="rounded-lg bg-indigo-50 border border-indigo-100 p-4">
+              <p class="text-[11px] font-semibold uppercase tracking-widest text-indigo-500 mb-1">ZenAI asks</p>
+              <p class="text-sm font-medium text-gray-900" id="ws-question"></p>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-700 mb-1">Your answer <span class="text-gray-400">(be specific — tools, stack, target env)</span></label>
+              <textarea
+                id="ws-answer"
+                rows="4"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-none"
+                placeholder="e.g. React Native + Expo, SQLite local storage, iOS first…"
+              ></textarea>
+            </div>
+            <div class="flex items-center gap-3">
+              <button onclick="runGenerateTasks()"
+                      class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-5 py-2 rounded-lg font-medium">
+                Generate Tasks →
+              </button>
+              <button onclick="runBreakdown()"
+                      class="text-xs text-gray-400 hover:text-gray-600 underline">
+                Re-ask question
+              </button>
+            </div>
+          </div>
+
+          <p class="hidden text-xs text-red-500" id="ws-step1-error"></p>
+        </div>
+
+        {# Step 2: generated tasks #}
+        <div id="ws-step2" class="hidden p-5 space-y-4">
+          <div id="ws-tasks-loading" class="flex flex-col items-center py-10 text-gray-400">
+            <svg class="animate-spin h-6 w-6 text-indigo-500 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+            </svg>
+            <p class="text-sm">Building your task plan…</p>
+          </div>
+
+          <div id="ws-tasks-result" class="hidden space-y-3">
+            <div class="rounded-lg bg-indigo-50 border border-indigo-100 px-4 py-3">
+              <p class="text-[11px] font-semibold uppercase tracking-widest text-indigo-500 mb-0.5">Session focus</p>
+              <p class="text-sm font-semibold text-gray-900" id="ws-focus-target"></p>
+            </div>
+            <p class="text-xs text-gray-500 italic" id="ws-response-md"></p>
+            <div class="space-y-2" id="ws-task-cards"></div>
+            <button onclick="resetToStep1()"
+                    class="text-xs text-gray-400 hover:text-gray-600 underline">
+              ← Change my answer
+            </button>
+          </div>
+
+          <p class="hidden text-xs text-red-500" id="ws-step2-error"></p>
+        </div>
+
+      </div>{# /AI Breakdown card #}
+    </div>{# /ideaWorkspace #}
+
+  </main>
 </div>
 
-<!-- Convert to Task Modal -->
-<div id="convertModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <h3 class="text-lg font-bold mb-4">Convert Idea to Task</h3>
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Task Date</label>
-            <input type="date" id="taskDate" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="{{ today|date:'Y-m-d' }}">
-        </div>
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Tag</label>
-            <select id="taskTag" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                <option value="W">Work</option>
-                <option value="P">Physical</option>
-                <option value="S">Spiritual</option>
-                <option value="R">Relationships</option>
-                <option value="B">Bonus</option>
-            </select>
-        </div>
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-            <select id="taskPriority" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                <option value="L">Low</option>
-                <option value="M" selected>Medium</option>
-                <option value="H">High</option>
-                <option value="U">Urgent</option>
-            </select>
-        </div>
-        <div class="flex space-x-2">
-            <button onclick="confirmConvert()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                Convert
-            </button>
-            <button onclick="closeModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
-                Cancel
-            </button>
-        </div>
+{# ── Convert to Task Modal ─────────────────────────────────────────────────── #}
+<div id="convertModal" class="hidden fixed inset-0 bg-gray-800/50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-xl shadow-2xl w-96 p-6">
+    <h3 class="text-base font-semibold text-gray-900 mb-4">Convert to Task</h3>
+    <div class="space-y-3 mb-5">
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Date</label>
+        <input type="date" id="taskDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" value="{{ today|date:'Y-m-d' }}">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Tag</label>
+        <select id="taskTag" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+          <option value="W">Work</option>
+          <option value="P">Physical</option>
+          <option value="S">Spiritual</option>
+          <option value="R">Relationships</option>
+          <option value="B">Bonus</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Priority</label>
+        <select id="taskPriority" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+          <option value="L">Low</option>
+          <option value="M" selected>Medium</option>
+          <option value="H">High</option>
+          <option value="U">Urgent</option>
+        </select>
+      </div>
     </div>
+    <div class="flex gap-2">
+      <button onclick="confirmConvert()" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 rounded-lg font-medium">Convert</button>
+      <button onclick="closeModal()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm py-2 rounded-lg font-medium">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <script>
-let selectedIdeaId = null;
+// ── State ──────────────────────────────────────────────────────────────────────
+let activeIdeaId   = null;
+let activeIdeaTitle = '';
+let storedQuestion  = '';
 
-function escapeHtml(value) {
-    return String(value || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+// ── Idea data from server ──────────────────────────────────────────────────────
+const IDEA_META = {
+  {% for idea in ideas %}
+  {{ idea.id }}: { title: '{{ idea.title|escapejs }}', description: '{{ idea.description|escapejs }}' },
+  {% endfor %}
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function escapeHtml(v) {
+  return String(v || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+
+function showEl(id)  { document.getElementById(id).classList.remove('hidden'); }
+function hideEl(id)  { document.getElementById(id).classList.add('hidden'); }
+function setTxt(id, v) { document.getElementById(id).textContent = v; }
+
+function setStep(step) {
+  const step1Tab = document.getElementById('ws-step1-tab');
+  const step2Tab = document.getElementById('ws-step2-tab');
+  const s1 = document.getElementById('ws-step1');
+  const s2 = document.getElementById('ws-step2');
+
+  if (step === 1) {
+    step1Tab.className = 'flex-1 py-3 text-center text-xs font-semibold border-b-2 border-indigo-600 text-indigo-700 bg-indigo-50 transition-colors';
+    step2Tab.className = 'flex-1 py-3 text-center text-xs font-semibold border-b-2 border-transparent text-gray-400 transition-colors';
+    showEl('ws-step1'); hideEl('ws-step2');
+  } else {
+    step1Tab.className = 'flex-1 py-3 text-center text-xs font-semibold border-b-2 border-transparent text-gray-400 transition-colors';
+    step2Tab.className = 'flex-1 py-3 text-center text-xs font-semibold border-b-2 border-indigo-600 text-indigo-700 bg-indigo-50 transition-colors';
+    hideEl('ws-step1'); showEl('ws-step2');
+  }
+}
+
+function highlightSidebarItem(ideaId) {
+  document.querySelectorAll('[id^="idea-sidebar-btn-"]').forEach(btn => {
+    btn.classList.remove('bg-yellow-50', 'border-l-2', 'border-yellow-400');
+  });
+  const btn = document.getElementById(`idea-sidebar-btn-${ideaId}`);
+  if (btn) btn.classList.add('bg-yellow-50', 'border-l-2', 'border-yellow-400');
+}
+
+// ── Select idea ────────────────────────────────────────────────────────────────
+function selectIdea(ideaId, ideaTitle) {
+  activeIdeaId    = ideaId;
+  activeIdeaTitle = ideaTitle;
+  storedQuestion  = '';
+
+  const meta = IDEA_META[ideaId] || {};
+  setTxt('ws-title', meta.title || ideaTitle);
+  setTxt('ws-description', meta.description || '');
+
+  highlightSidebarItem(ideaId);
+  hideEl('ideaEmptyState');
+  showEl('ideaWorkspace');
+
+  // Reset to idle step 1
+  setStep(1);
+  showEl('ws-idle');
+  hideEl('ws-loading');
+  hideEl('ws-question-block');
+  hideEl('ws-step1-error');
+  document.getElementById('ws-answer').value = '';
+}
+
+// ── Step 1: run AI clarifying question ────────────────────────────────────────
+function runBreakdown() {
+  if (!activeIdeaId) return;
+
+  hideEl('ws-idle');
+  hideEl('ws-question-block');
+  hideEl('ws-step1-error');
+  showEl('ws-loading');
+  setTxt('ws-loading-label', 'Generating clarifying question…');
+  setStep(1);
+
+  fetch(`/idea/${activeIdeaId}/breakdown/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  })
+  .then(r => r.json())
+  .then(data => {
+    hideEl('ws-loading');
+    if (!data.success) {
+      showEl('ws-step1-error');
+      setTxt('ws-step1-error', data.error || 'Failed. Please try again.');
+      showEl('ws-idle');
+      return;
+    }
+    storedQuestion = data.clarifying_question || '';
+    setTxt('ws-question', storedQuestion || `What exact deliverable should "${activeIdeaTitle}" turn into, and with which stack?`);
+    document.getElementById('ws-answer').value = '';
+    showEl('ws-question-block');
+  })
+  .catch(() => {
+    hideEl('ws-loading');
+    showEl('ws-step1-error');
+    setTxt('ws-step1-error', 'Network error. Please try again.');
+    showEl('ws-idle');
+  });
+}
+
+// ── Step 2: generate tasks ─────────────────────────────────────────────────────
+function runGenerateTasks() {
+  const answer = (document.getElementById('ws-answer').value || '').trim();
+  if (!answer) {
+    showEl('ws-step1-error');
+    setTxt('ws-step1-error', 'Please write an answer before generating tasks.');
+    document.getElementById('ws-answer').focus();
+    return;
+  }
+  hideEl('ws-step1-error');
+  setStep(2);
+  showEl('ws-tasks-loading');
+  hideEl('ws-tasks-result');
+  hideEl('ws-step2-error');
+  setTxt('ws-loading-label', 'Building your task plan…');
+
+  fetch(`/idea/${activeIdeaId}/breakdown/tasks/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      clarifying_question: storedQuestion,
+      clarifying_answer: answer,
+    })
+  })
+  .then(async r => {
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Server error.');
+    return data;
+  })
+  .then(data => {
+    hideEl('ws-tasks-loading');
+    setTxt('ws-focus-target', data.focus_target || `Focus: ${activeIdeaTitle}`);
+    setTxt('ws-response-md', data.response_markdown || '');
+
+    const tasks = Array.isArray(data.suggested_tasks) ? data.suggested_tasks : [];
+    const cardsEl = document.getElementById('ws-task-cards');
+    if (tasks.length === 0) {
+      cardsEl.innerHTML = '<p class="text-xs text-gray-400">No tasks were suggested. Try refining your answer.</p>';
+    } else {
+      cardsEl.innerHTML = tasks.map(t => getTaskCardHtml(activeIdeaId, t)).join('');
+    }
+    showEl('ws-tasks-result');
+  })
+  .catch(err => {
+    hideEl('ws-tasks-loading');
+    showEl('ws-step2-error');
+    setTxt('ws-step2-error', err.message || 'Network error. Please try again.');
+  });
+}
+
+function resetToStep1() {
+  setStep(1);
+  showEl('ws-question-block');
+  hideEl('ws-idle');
+}
+
+// ── Task card ──────────────────────────────────────────────────────────────────
+const TAG_LABELS   = { P:'Physical', S:'Spiritual', W:'Work', R:'Relationships', B:'Bonus' };
+const PRI_COLORS   = { L:'bg-gray-100 text-gray-600', M:'bg-blue-100 text-blue-700', H:'bg-orange-100 text-orange-700', U:'bg-red-100 text-red-700' };
+const TAG_COLORS   = { P:'bg-green-100 text-green-700', S:'bg-purple-100 text-purple-700', W:'bg-blue-100 text-blue-700', R:'bg-pink-100 text-pink-700', B:'bg-yellow-100 text-yellow-700' };
 
 function getTaskCardHtml(ideaId, task) {
-    const badges = [];
-    badges.push(`<span class="rounded-full border border-gray-200 bg-white px-2 py-0.5">${escapeHtml(task.tag || 'W')} · ${escapeHtml(task.priority || 'M')}</span>`);
-    if (task.duration_minutes) {
-        badges.push(`<span class="rounded-full border border-indigo-200 bg-indigo-100 px-2 py-0.5 text-indigo-700">${escapeHtml(task.duration_minutes)} min</span>`);
-    }
+  const tagCls = TAG_COLORS[task.tag] || 'bg-gray-100 text-gray-600';
+  const priCls = PRI_COLORS[task.priority] || 'bg-gray-100 text-gray-600';
+  const tagLabel = TAG_LABELS[task.tag] || task.tag || 'Work';
+  const recur = task.recurrence_type && task.recurrence_type !== 'none'
+    ? `<span class="rounded-full bg-indigo-100 text-indigo-700 px-2 py-0.5">↻ ${escapeHtml(task.recurrence_type)}</span>` : '';
 
-    return `
-        <div class="rounded-md border border-indigo-100 bg-white p-2">
-            <p class="text-sm font-medium text-gray-900">${escapeHtml(task.title || '')}</p>
-            <p class="text-xs text-gray-600 mt-1">${escapeHtml(task.why || '')}</p>
-            <div class="mt-2 flex flex-wrap gap-1 text-[11px] text-gray-600">
-                ${badges.join('')}
-            </div>
-            <button
-                onclick='addIdeaTask(${ideaId}, ${JSON.stringify(task).replace(/'/g, "&#39;")})'
-                class="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded"
-            >Add to calendar</button>
-        </div>
-    `;
+  return `
+    <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+      <div class="flex items-start justify-between gap-2">
+        <p class="text-sm font-semibold text-gray-900 leading-snug">${escapeHtml(task.title || '')}</p>
+        <button
+          onclick='addIdeaTask(${ideaId}, ${JSON.stringify(task).replace(/'/g, "&#39;")})'
+          class="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded-md font-medium"
+        >+ Add</button>
+      </div>
+      ${task.why ? `<p class="text-xs text-gray-500">${escapeHtml(task.why)}</p>` : ''}
+      <div class="flex flex-wrap gap-1.5 text-[11px] font-medium">
+        <span class="rounded-full px-2 py-0.5 ${tagCls}">${escapeHtml(tagLabel)}</span>
+        <span class="rounded-full px-2 py-0.5 ${priCls}">${escapeHtml(task.priority || 'M')} priority</span>
+        ${task.duration_minutes ? `<span class="rounded-full bg-gray-200 text-gray-600 px-2 py-0.5">${escapeHtml(String(task.duration_minutes))} min</span>` : ''}
+        ${task.recommended_date ? `<span class="rounded-full bg-gray-200 text-gray-600 px-2 py-0.5">📅 ${escapeHtml(task.recommended_date)}</span>` : ''}
+        ${recur}
+      </div>
+      ${task.note ? `<p class="text-[11px] text-gray-400 border-t border-gray-200 pt-1.5">${escapeHtml(task.note)}</p>` : ''}
+    </div>
+  `;
 }
 
-function setIdeaStepState(ideaId, activeStep) {
-    const step1Badge = document.getElementById(`idea-breakdown-step1-badge-${ideaId}`);
-    const step2Badge = document.getElementById(`idea-breakdown-step2-badge-${ideaId}`);
-    const questionStep = document.getElementById(`idea-breakdown-question-step-${ideaId}`);
-    const taskStep = document.getElementById(`idea-breakdown-task-step-${ideaId}`);
-
-    if (activeStep === 2) {
-        step1Badge.className = 'rounded-full bg-white px-2 py-1 text-indigo-700 border border-indigo-200';
-        step2Badge.className = 'rounded-full bg-indigo-600 px-2 py-1 text-white';
-        taskStep.classList.remove('hidden');
-    } else {
-        step1Badge.className = 'rounded-full bg-indigo-600 px-2 py-1 text-white';
-        step2Badge.className = 'rounded-full bg-white px-2 py-1 text-indigo-700 border border-indigo-200';
-        taskStep.classList.add('hidden');
-    }
-
-    questionStep.classList.remove('hidden');
-}
-
-function breakdownIdea(ideaId, ideaTitle) {
-    const panel = document.getElementById(`idea-breakdown-${ideaId}`);
-    const responseEl = document.getElementById(`idea-breakdown-response-${ideaId}`);
-    const questionEl = document.getElementById(`idea-breakdown-question-${ideaId}`);
-    const answerEl = document.getElementById(`idea-breakdown-answer-${ideaId}`);
-    const taskResponseEl = document.getElementById(`idea-breakdown-task-response-${ideaId}`);
-    const taskCountEl = document.getElementById(`idea-breakdown-task-count-${ideaId}`);
-    const tasksEl = document.getElementById(`idea-breakdown-tasks-${ideaId}`);
-
-    panel.classList.remove('hidden');
-    setIdeaStepState(ideaId, 1);
-    responseEl.textContent = 'Thinking...';
-    questionEl.textContent = '';
-    answerEl.value = '';
-    answerEl.dataset.question = '';
-    taskResponseEl.textContent = '';
-    taskCountEl.textContent = '';
-    tasksEl.innerHTML = '';
-
-    fetch(`/idea/${ideaId}/breakdown/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({})
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (!data.success) {
-            responseEl.textContent = data.error || 'Please try again.';
-            return;
-        }
-
-        responseEl.textContent = data.response_markdown || '';
-        questionEl.textContent = data.clarifying_question || `What exact deliverable should ${ideaTitle} turn into, and with which stack?`;
-        answerEl.dataset.question = data.clarifying_question || '';
-    })
-    .catch(() => {
-        responseEl.textContent = 'Network error. Please try again.';
-    });
-}
-
-function generateIdeaTasks(ideaId, ideaTitle) {
-    const focusEl = document.getElementById(`idea-breakdown-focus-${ideaId}`);
-    const responseEl = document.getElementById(`idea-breakdown-response-${ideaId}`);
-    const answerEl = document.getElementById(`idea-breakdown-answer-${ideaId}`);
-    const taskResponseEl = document.getElementById(`idea-breakdown-task-response-${ideaId}`);
-    const taskCountEl = document.getElementById(`idea-breakdown-task-count-${ideaId}`);
-    const tasksEl = document.getElementById(`idea-breakdown-tasks-${ideaId}`);
-
-    const clarifyingAnswer = (answerEl.value || '').trim();
-    if (!clarifyingAnswer) {
-        taskResponseEl.textContent = 'Please answer the clarifying question first.';
-        setIdeaStepState(ideaId, 1);
-        answerEl.focus();
-        return;
-    }
-
-    setIdeaStepState(ideaId, 2);
-    focusEl.textContent = 'Generating task plan...';
-    taskResponseEl.textContent = '';
-    taskCountEl.textContent = '';
-    tasksEl.innerHTML = '';
-
-    fetch(`/idea/${ideaId}/breakdown/tasks/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            clarifying_question: answerEl.dataset.question || '',
-            clarifying_answer: clarifyingAnswer,
-        })
-    })
-    .then(async response => {
-        const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.error || 'Please try again.');
-        }
-        return data;
-    })
-    .then(data => {
-        focusEl.textContent = data.focus_target || `Focus: ${ideaTitle}`;
-        responseEl.textContent = responseEl.textContent || 'Clarification captured.';
-        taskResponseEl.textContent = data.response_markdown || '';
-
-        const tasks = Array.isArray(data.suggested_tasks) ? data.suggested_tasks : [];
-        taskCountEl.textContent = tasks.length ? `${tasks.length} tasks ready` : 'No tasks returned.';
-
-        if (tasks.length === 0) {
-            tasksEl.innerHTML = '<p class="text-xs text-gray-500">No tasks suggested.</p>';
-            return;
-        }
-
-        tasksEl.innerHTML = tasks.map((task) => getTaskCardHtml(ideaId, task)).join('');
-    })
-    .catch((error) => {
-        setIdeaStepState(ideaId, 1);
-        taskResponseEl.textContent = error.message || 'Network error. Please try again.';
-    });
-}
-
+// ── Add task to calendar ───────────────────────────────────────────────────────
 function addIdeaTask(ideaId, task) {
-    const payload = {
-        ...task,
-        recommended_date: task.recommended_date || '{{ today|date:"Y-m-d" }}'
-    };
-
-    fetch('{% url "zenai_add_suggested_task" %}', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(`Added: ${data.task.title}`);
-            return;
-        }
-        alert(data.error || 'Could not add task.');
-    })
-    .catch(() => {
-        alert('Network error while adding task.');
-    });
+  const payload = { ...task, recommended_date: task.recommended_date || '{{ today|date:"Y-m-d" }}' };
+  fetch('{% url "zenai_add_suggested_task" %}', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      const btn = event.target;
+      btn.textContent = '✓ Added';
+      btn.disabled = true;
+      btn.className = btn.className.replace('bg-indigo-600 hover:bg-indigo-700', 'bg-green-500 cursor-default');
+      return;
+    }
+    alert(data.error || 'Could not add task.');
+  })
+  .catch(() => alert('Network error while adding task.'));
 }
 
-function convertToTask(ideaId) {
-    selectedIdeaId = ideaId;
-    document.getElementById('convertModal').classList.remove('hidden');
+// ── Convert to Task modal ──────────────────────────────────────────────────────
+function openConvertModal() {
+  if (!activeIdeaId) return;
+  document.getElementById('convertModal').classList.remove('hidden');
 }
 
 function closeModal() {
-    document.getElementById('convertModal').classList.add('hidden');
-    selectedIdeaId = null;
+  document.getElementById('convertModal').classList.add('hidden');
 }
 
 function confirmConvert() {
-    const date = document.getElementById('taskDate').value;
-    const tag = document.getElementById('taskTag').value;
-    const priority = document.getElementById('taskPriority').value;
-    
-    fetch(`/idea/convert/${selectedIdeaId}/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `task_date=${date}&tag=${tag}&priority=${priority}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    });
+  const d = document.getElementById('taskDate').value;
+  const tag = document.getElementById('taskTag').value;
+  const priority = document.getElementById('taskPriority').value;
+  fetch(`/idea/convert/${activeIdeaId}/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `task_date=${d}&tag=${tag}&priority=${priority}`
+  })
+  .then(r => r.json())
+  .then(data => { if (data.success) location.reload(); });
 }
 
-function deleteIdea(ideaId) {
-    if (confirm('Are you sure you want to delete this idea?')) {
-        fetch(`/idea/delete/${ideaId}/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            }
-        });
-    }
+// ── Delete idea ────────────────────────────────────────────────────────────────
+function deleteCurrentIdea() {
+  if (!activeIdeaId) return;
+  if (!confirm('Delete this idea?')) return;
+  fetch(`/idea/delete/${activeIdeaId}/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+  })
+  .then(r => r.json())
+  .then(data => { if (data.success) location.reload(); });
 }
 </script>
 {% endblock %}
