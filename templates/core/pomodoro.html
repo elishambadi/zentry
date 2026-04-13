@@ -4,12 +4,9 @@
 
 {% block extra_head %}
 <style>
-  /* Override base body bg for this page only */
-  body { background-color: #0f0f0f !important; }
-
   @keyframes pulse-ring {
-    0%   { box-shadow: 0 0 0 0   rgba(99,102,241,0.4); }
-    70%  { box-shadow: 0 0 0 18px rgba(99,102,241,0);   }
+    0%   { box-shadow: 0 0 0 0   rgba(99,102,241,0.35); }
+    70%  { box-shadow: 0 0 0 16px rgba(99,102,241,0);   }
     100% { box-shadow: 0 0 0 0   rgba(99,102,241,0);    }
   }
   .pulse-ring { animation: pulse-ring 2s ease-out infinite; }
@@ -17,51 +14,53 @@
   @keyframes tick {
     0%  { opacity: 1; }
     49% { opacity: 1; }
-    50% { opacity: 0.3; }
-    99% { opacity: 0.3; }
+    50% { opacity: 0.25; }
+    99% { opacity: 0.25; }
     100%{ opacity: 1; }
   }
   .colon-blink { animation: tick 1s step-start infinite; }
+
+  #pomodoroApp { min-height: calc(100vh - 4rem); }
 </style>
 {% endblock %}
 
 {% block content %}
-{# Full-height shell — override base padding to go edge-to-edge #}
-<div class="-mx-6 -mt-8 min-h-[calc(100vh-0px)] flex bg-[#0f0f0f] text-gray-100 select-none" id="pomodoroApp">
+{# Full-height shell — sits inside the base ml-16 main wrapper #}
+<div class="-mx-6 -mt-8 flex bg-white" id="pomodoroApp" style="min-height:calc(100vh - 0px)">
 
   {# ── LEFT SIDEBAR — task picker ──────────────────────────────────────────── #}
-  <aside class="w-64 shrink-0 flex flex-col border-r border-white/5 overflow-hidden">
+  <aside class="w-72 shrink-0 flex flex-col border-r border-gray-200 bg-gray-50 overflow-hidden">
 
     {# Header + Mode toggle #}
-    <div class="px-5 pt-6 pb-4 border-b border-white/5 flex flex-col gap-3">
+    <div class="px-6 pt-7 pb-5 border-b border-gray-200 flex flex-col gap-4">
       <div>
-        <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Today's tasks</p>
-        <p class="text-xs text-gray-600" id="sidebar-date">{{ today|date:"l, j M" }}</p>
+        <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Today's tasks</p>
+        <p class="text-sm font-semibold text-gray-800" id="sidebar-date">{{ today|date:"l, j M" }}</p>
       </div>
       {# Mode selector: 25/5 vs 50/10 #}
       <div class="flex items-center justify-between">
-        <span class="text-[10px] text-gray-600 uppercase tracking-widest font-semibold">Mode</span>
-        <div class="flex bg-white/5 rounded-lg p-0.5 gap-0.5">
+        <span class="text-[10px] text-gray-400 uppercase tracking-widest font-semibold">Timer mode</span>
+        <div class="flex bg-gray-200 rounded-lg p-0.5 gap-0.5">
           <button id="mode-btn-25" onclick="setMode('25')"
-            class="px-3 py-1 rounded-md text-xs font-semibold bg-white text-gray-900 transition-colors">
-            25/5
+            class="px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-gray-900 shadow-sm transition-all">
+            25 / 5
           </button>
           <button id="mode-btn-50" onclick="setMode('50')"
-            class="px-3 py-1 rounded-md text-xs font-semibold text-gray-500 hover:text-gray-300 transition-colors">
-            50/10
+            class="px-3 py-1.5 rounded-md text-xs font-semibold text-gray-400 hover:text-gray-600 transition-all">
+            50 / 10
           </button>
         </div>
       </div>
     </div>
 
     {# Recommendation label #}
-    <div class="px-5 py-2 border-b border-white/5">
+    <div class="px-6 py-3 border-b border-gray-200">
       {% if is_morning %}
-      <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[11px] font-semibold text-amber-400">
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[11px] font-semibold text-amber-600">
         ☀️ Morning — deep work first
       </span>
       {% else %}
-      <span class="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 text-[11px] font-semibold text-indigo-400">
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-1 text-[11px] font-semibold text-indigo-600">
         🌙 Afternoon — sustain momentum
       </span>
       {% endif %}
@@ -74,23 +73,23 @@
         <button
           onclick="selectTask({{ task.id }}, '{{ task.title|escapejs }}', '{{ task.tag }}', '{{ task.priority }}')"
           id="task-btn-{{ task.id }}"
-          class="w-full text-left px-5 py-3 hover:bg-white/5 transition-colors group border-l-2 border-transparent"
+          class="w-full text-left px-6 py-3.5 hover:bg-white transition-colors group border-l-2 border-transparent"
         >
           <div class="flex items-start gap-2">
             <div class="min-w-0 flex-1">
-              <p class="text-sm text-gray-300 group-hover:text-white truncate leading-snug" id="task-title-label-{{ task.id }}">{{ task.title }}</p>
+              <p class="text-sm text-gray-700 group-hover:text-gray-900 truncate leading-snug font-medium" id="task-title-label-{{ task.id }}">{{ task.title }}</p>
               <div class="flex items-center gap-1.5 mt-1">
                 {% if task.priority == 'U' %}
-                <span class="text-[10px] font-semibold text-red-400">URGENT</span>
+                <span class="text-[10px] font-semibold text-red-500">URGENT</span>
                 {% elif task.priority == 'H' %}
-                <span class="text-[10px] font-semibold text-orange-400">HIGH</span>
+                <span class="text-[10px] font-semibold text-orange-500">HIGH</span>
                 {% elif task.priority == 'M' %}
-                <span class="text-[10px] text-gray-500">MED</span>
+                <span class="text-[10px] text-gray-400">MED</span>
                 {% else %}
-                <span class="text-[10px] text-gray-600">LOW</span>
+                <span class="text-[10px] text-gray-400">LOW</span>
                 {% endif %}
-                <span class="text-[10px] text-gray-600">·</span>
-                <span class="text-[10px] text-gray-500">{{ task.get_tag_display }}</span>
+                <span class="text-[10px] text-gray-300">·</span>
+                <span class="text-[10px] text-gray-400">{{ task.get_tag_display }}</span>
                 {% if task.is_rest %}
                 <span class="text-[10px] text-emerald-500">· REST</span>
                 {% endif %}
@@ -100,57 +99,57 @@
         </button>
         {% endfor %}
       {% else %}
-        <div class="px-5 py-8 text-center">
-          <p class="text-sm text-gray-600">No tasks for today.</p>
-          <a href="{% url 'daily_view' today.year today.month today.day %}" class="mt-2 inline-block text-xs text-indigo-400 hover:text-indigo-300 underline">Add tasks →</a>
+        <div class="px-6 py-10 text-center">
+          <p class="text-sm text-gray-400">No tasks for today.</p>
+          <a href="{% url 'daily_view' today.year today.month today.day %}" class="mt-2 inline-block text-xs text-indigo-500 hover:text-indigo-700 underline">Add tasks →</a>
         </div>
       {% endif %}
     </div>
 
     {# Bottom: link to daily view #}
-    <div class="px-5 py-4 border-t border-white/5">
-      <a href="{% url 'daily_view' today.year today.month today.day %}" class="text-xs text-gray-600 hover:text-gray-400 transition-colors">
+    <div class="px-6 py-4 border-t border-gray-200">
+      <a href="{% url 'daily_view' today.year today.month today.day %}" class="text-xs text-gray-400 hover:text-gray-700 transition-colors font-medium">
         View full day →
       </a>
     </div>
   </aside>
 
   {# ── MAIN FOCUS AREA ─────────────────────────────────────────────────────── #}
-  <main class="flex-1 flex flex-col items-center justify-center px-8 relative overflow-hidden">
+  <main class="flex-1 flex flex-col items-center justify-center px-12 py-12 relative overflow-hidden bg-white">
 
     {# Subtle background glow when running #}
     <div id="focus-glow" class="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-1000"
-         style="background: radial-gradient(ellipse at 50% 40%, rgba(99,102,241,0.07) 0%, transparent 70%);"></div>
+         style="background: radial-gradient(ellipse at 50% 40%, rgba(99,102,241,0.06) 0%, transparent 70%);"></div>
 
     {# ── IDLE STATE — no task selected ────────────────────────────────────── #}
     <div id="state-idle" class="flex flex-col items-center text-center space-y-4">
-      <div class="text-6xl mb-2">🍅</div>
-      <p class="text-xl font-semibold text-gray-400" id="idle-headline">Select a task to begin</p>
-      <p class="text-sm text-gray-600 max-w-xs">
+      <div class="text-7xl mb-2">🍅</div>
+      <p class="text-2xl font-bold text-gray-800" id="idle-headline">Select a task to begin</p>
+      <p class="text-sm text-gray-400 max-w-sm leading-relaxed">
         Pick a task from the sidebar.<br>
         {% if is_morning %}High and Urgent work tasks are shown first — protect your deep work hours.{% else %}Keep your momentum going into the afternoon.{% endif %}
       </p>
     </div>
 
     {# ── ACTIVE STATE — timer running ─────────────────────────────────────── #}
-    <div id="state-active" class="hidden flex flex-col items-center text-center w-full max-w-sm space-y-8">
+    <div id="state-active" class="hidden flex flex-col items-center text-center w-full max-w-md space-y-8">
 
       {# Session type badge #}
-      <div id="session-badge" class="inline-flex items-center gap-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-4 py-1.5 text-xs font-semibold text-indigo-300">
+      <div id="session-badge" class="inline-flex items-center gap-2 rounded-full bg-indigo-50 border border-indigo-200 px-4 py-1.5 text-xs font-semibold text-indigo-600">
         🎯 Deep work
       </div>
 
       {# Current task #}
-      <div class="space-y-1">
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-gray-600">Focusing on</p>
-        <h1 class="text-2xl font-bold text-white leading-tight" id="focus-task-title">—</h1>
-        <p class="text-xs text-gray-500" id="focus-task-meta"></p>
+      <div class="space-y-1.5">
+        <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Focusing on</p>
+        <h1 class="text-2xl font-bold text-gray-900 leading-tight" id="focus-task-title">—</h1>
+        <p class="text-xs text-gray-400" id="focus-task-meta"></p>
       </div>
 
       {# Timer ring #}
       <div class="relative flex items-center justify-center">
         <svg class="absolute" width="220" height="220" viewBox="0 0 220 220">
-          <circle cx="110" cy="110" r="100" fill="none" stroke="#1f1f1f" stroke-width="8"/>
+          <circle cx="110" cy="110" r="100" fill="none" stroke="#e5e7eb" stroke-width="8"/>
           <circle
             id="timer-ring"
             cx="110" cy="110" r="100"
@@ -165,10 +164,10 @@
           />
         </svg>
         <div class="flex flex-col items-center z-10">
-          <div class="text-6xl font-mono font-bold text-white tracking-tighter leading-none">
+          <div class="text-6xl font-mono font-bold text-gray-900 tracking-tighter leading-none">
             <span id="timer-min">25</span><span class="colon-blink">:</span><span id="timer-sec">00</span>
           </div>
-          <p class="text-xs text-gray-600 mt-2 uppercase tracking-widest" id="timer-phase-label">Work</p>
+          <p class="text-[10px] text-gray-400 mt-2 uppercase tracking-widest" id="timer-phase-label">Work</p>
         </div>
       </div>
 
@@ -176,58 +175,58 @@
       <div class="flex items-center gap-4">
         <button id="btn-start"
           onclick="startTimer()"
-          class="pulse-ring bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-8 py-3 rounded-full transition-colors">
+          class="pulse-ring bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-10 py-3 rounded-full transition-colors shadow-sm">
           Start
         </button>
         <button id="btn-pause"
           onclick="pauseTimer()"
-          class="hidden bg-white/10 hover:bg-white/15 text-white text-sm font-semibold px-8 py-3 rounded-full transition-colors">
+          class="hidden bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold px-10 py-3 rounded-full transition-colors">
           Pause
         </button>
         <button id="btn-resume"
           onclick="resumeTimer()"
-          class="hidden bg-white/10 hover:bg-white/15 text-white text-sm font-semibold px-8 py-3 rounded-full transition-colors">
+          class="hidden bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold px-10 py-3 rounded-full transition-colors">
           Resume
         </button>
         <button
           onclick="skipPhase()"
-          class="text-gray-600 hover:text-gray-400 text-xs transition-colors">
+          class="text-gray-400 hover:text-gray-600 text-xs transition-colors">
           Skip →
         </button>
       </div>
 
       {# Session counter #}
-      <div class="flex items-center gap-1.5" id="session-dots">
+      <div class="flex items-center gap-2" id="session-dots">
         {# filled by JS #}
       </div>
 
       {# Mark done / change task #}
-      <div class="flex items-center gap-6 text-xs">
-        <button onclick="markDone()" class="text-emerald-400 hover:text-emerald-300 transition-colors font-medium">
+      <div class="flex items-center gap-8 text-xs pt-2">
+        <button onclick="markDone()" class="text-emerald-600 hover:text-emerald-700 transition-colors font-semibold">
           ✓ Mark done
         </button>
-        <button onclick="changeTask()" class="text-gray-600 hover:text-gray-400 transition-colors">
+        <button onclick="changeTask()" class="text-gray-400 hover:text-gray-600 transition-colors">
           Change task
         </button>
       </div>
     </div>
 
     {# ── BREAK STATE — rest between sessions ──────────────────────────────── #}
-    <div id="state-break" class="hidden flex flex-col items-center text-center w-full max-w-sm space-y-8">
+    <div id="state-break" class="hidden flex flex-col items-center text-center w-full max-w-md space-y-8">
 
-      <div id="break-badge" class="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-4 py-1.5 text-xs font-semibold text-emerald-300">
+      <div id="break-badge" class="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-4 py-1.5 text-xs font-semibold text-emerald-600">
         ☕ Short break
       </div>
 
-      <div class="space-y-1">
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-gray-600">Rest your mind</p>
-        <p class="text-gray-400 text-sm max-w-xs">Step away from the screen. Breathe. Come back ready.</p>
+      <div class="space-y-1.5">
+        <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Rest your mind</p>
+        <p class="text-gray-500 text-sm max-w-xs leading-relaxed">Step away from the screen. Breathe. Come back ready.</p>
       </div>
 
       {# Break timer #}
       <div class="relative flex items-center justify-center">
         <svg class="absolute" width="220" height="220" viewBox="0 0 220 220">
-          <circle cx="110" cy="110" r="100" fill="none" stroke="#1f1f1f" stroke-width="8"/>
+          <circle cx="110" cy="110" r="100" fill="none" stroke="#e5e7eb" stroke-width="8"/>
           <circle
             id="break-ring"
             cx="110" cy="110" r="100"
@@ -242,28 +241,28 @@
           />
         </svg>
         <div class="flex flex-col items-center z-10">
-          <div class="text-6xl font-mono font-bold text-white tracking-tighter leading-none">
+          <div class="text-6xl font-mono font-bold text-gray-900 tracking-tighter leading-none">
             <span id="break-min">05</span><span class="colon-blink">:</span><span id="break-sec">00</span>
           </div>
-          <p class="text-xs text-gray-600 mt-2 uppercase tracking-widest" id="break-phase-label">Break</p>
+          <p class="text-[10px] text-gray-400 mt-2 uppercase tracking-widest" id="break-phase-label">Break</p>
         </div>
       </div>
 
       {# After-break actions — shown when break ends #}
       <div id="break-end-actions" class="hidden space-y-3 w-full">
-        <p class="text-sm font-semibold text-white">Break over. What next?</p>
+        <p class="text-sm font-semibold text-gray-800">Break over. What next?</p>
         <button onclick="continueWithSameTask()"
-                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold py-3 rounded-full transition-colors">
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-3 rounded-full transition-colors shadow-sm">
           Continue with same task
         </button>
         <button onclick="changeTask()"
-                class="w-full bg-white/8 hover:bg-white/12 text-gray-300 text-sm font-semibold py-3 rounded-full transition-colors">
+                class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-semibold py-3 rounded-full transition-colors">
           Pick a different task
         </button>
       </div>
 
       <div id="break-skip-btn">
-        <button onclick="endBreak()" class="text-xs text-gray-600 hover:text-gray-400 transition-colors">
+        <button onclick="endBreak()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">
           Skip break →
         </button>
       </div>
@@ -341,13 +340,7 @@ function setMode(m) {
   }
   S.mode = m;
   // Update button styles
-  ['25','50'].forEach(k => {
-    const btn = document.getElementById(`mode-btn-${k}`);
-    if (!btn) return;
-    btn.className = k === m
-      ? 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-gray-900 transition-colors'
-      : 'px-3 py-1 rounded-md text-xs font-semibold text-gray-500 hover:text-gray-300 transition-colors';
-  });
+  setModeButtons(m);
   // Reset timer if a task is selected
   if (S.taskId) {
     stopTick();
@@ -406,7 +399,7 @@ function setState(s) {
   document.getElementById('state-active').classList.toggle('hidden', s !== 'active');
   document.getElementById('state-break').classList.toggle('hidden',  s !== 'break');
   document.getElementById('focus-glow').style.opacity =
-    (s === 'active' && S.isRunning) ? '1' : '0';
+    (s === 'active' && S.isRunning) ? '0.7' : '0';
 }
 
 function renderSessionDots() {
@@ -414,8 +407,8 @@ function renderSessionDots() {
   let html = '';
   for (let i = 0; i < SESSIONS_BEFORE_LONG; i++) {
     html += i < S.sessionsCompleted
-      ? '<div class="w-2 h-2 rounded-full bg-indigo-500"></div>'
-      : '<div class="w-2 h-2 rounded-full bg-white/10"></div>';
+      ? '<div class="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>'
+      : '<div class="w-2.5 h-2.5 rounded-full bg-gray-200"></div>';
   }
   el.innerHTML = html;
 }
@@ -600,10 +593,10 @@ function selectTask(id, title, tag, priority) {
   const badge = document.getElementById('session-badge');
   if (isDeepWork) {
     badge.textContent = '🎯 Deep work';
-    badge.className = 'inline-flex items-center gap-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-4 py-1.5 text-xs font-semibold text-indigo-300';
+    badge.className = 'inline-flex items-center gap-2 rounded-full bg-indigo-50 border border-indigo-200 px-4 py-1.5 text-xs font-semibold text-indigo-600';
   } else {
     badge.textContent = '⚡ Focus session';
-    badge.className = 'inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-4 py-1.5 text-xs font-semibold text-amber-300';
+    badge.className = 'inline-flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200 px-4 py-1.5 text-xs font-semibold text-amber-600';
   }
 
   showBtn('btn-start'); hideBtn('btn-pause'); hideBtn('btn-resume');
@@ -681,8 +674,8 @@ function restoreFromStorage() {
   const badge = document.getElementById('session-badge');
   badge.textContent = isDeepWork ? '🎯 Deep work' : '⚡ Focus session';
   badge.className = isDeepWork
-    ? 'inline-flex items-center gap-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-4 py-1.5 text-xs font-semibold text-indigo-300'
-    : 'inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-4 py-1.5 text-xs font-semibold text-amber-300';
+    ? 'inline-flex items-center gap-2 rounded-full bg-indigo-50 border border-indigo-200 px-4 py-1.5 text-xs font-semibold text-indigo-600'
+    : 'inline-flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200 px-4 py-1.5 text-xs font-semibold text-amber-600';
 
   updateSidebarHighlight(S.taskId);
   renderSessionDots();
@@ -721,8 +714,8 @@ function setModeButtons(m) {
     const btn = document.getElementById(`mode-btn-${k}`);
     if (!btn) return;
     btn.className = k === m
-      ? 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-gray-900 transition-colors'
-      : 'px-3 py-1 rounded-md text-xs font-semibold text-gray-500 hover:text-gray-300 transition-colors';
+      ? 'px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-gray-900 shadow-sm transition-all'
+      : 'px-3 py-1.5 rounded-md text-xs font-semibold text-gray-400 hover:text-gray-600 transition-all';
   });
 }
 
