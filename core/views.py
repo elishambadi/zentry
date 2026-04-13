@@ -643,7 +643,7 @@ def generate_subject_task_breakdown_reply(section, subject_title, subject_descri
             'today': date.today().isoformat(),
         }
         logger.info(
-            '[ZenAI] generate_subject_task_breakdown_reply | section=%s | subject=%r | answer=%r | model=claude-sonnet-4-6 | max_tokens=1100',
+            '[ZenAI] generate_subject_task_breakdown_reply | section=%s | subject=%r | answer=%r | model=claude-sonnet-4-6 | max_tokens=4096',
             section, subject_title, clarifying_answer,
         )
         logger.debug('[ZenAI] subject_task_breakdown prompt payload: %s', json.dumps(prompt, ensure_ascii=False))
@@ -651,7 +651,7 @@ def generate_subject_task_breakdown_reply(section, subject_title, subject_descri
         try:
             response = client.messages.create(
                 model='claude-sonnet-4-6',
-                max_tokens=1100,
+                max_tokens=4096,
                 temperature=0.4,
                 system=system_prompt,
                 messages=[
@@ -665,13 +665,21 @@ def generate_subject_task_breakdown_reply(section, subject_title, subject_descri
             logger.exception('[ZenAI] generate_subject_task_breakdown_reply API call failed: %s', exc)
             return fallback_payload
         _elapsed = time.monotonic() - _t0
+        _stop_reason = getattr(response, 'stop_reason', 'unknown')
+        _usage = getattr(response, 'usage', None)
         logger.info(
             '[ZenAI] generate_subject_task_breakdown_reply response received | elapsed=%.2fs | stop_reason=%s | input_tokens=%s | output_tokens=%s',
             _elapsed,
-            getattr(response, 'stop_reason', 'unknown'),
-            getattr(getattr(response, 'usage', None), 'input_tokens', '?'),
-            getattr(getattr(response, 'usage', None), 'output_tokens', '?'),
+            _stop_reason,
+            getattr(_usage, 'input_tokens', '?'),
+            getattr(_usage, 'output_tokens', '?'),
         )
+        if _stop_reason == 'max_tokens':
+            logger.warning(
+                '[ZenAI] generate_subject_task_breakdown_reply TRUNCATED by max_tokens — raise limit or shorten prompt | '
+                'output_tokens=%s | section=%s | subject=%r',
+                getattr(_usage, 'output_tokens', '?'), section, subject_title,
+            )
         if response.content:
             raw_text = response.content[0].text
             logger.debug('[ZenAI] generate_subject_task_breakdown_reply raw response: %s', raw_text)
@@ -1023,7 +1031,7 @@ def generate_idea_task_breakdown_reply(idea, clarifying_question, clarifying_ans
             'today': date.today().isoformat(),
         }
         logger.info(
-            '[ZenAI] generate_idea_task_breakdown_reply | idea_id=%s | idea_title=%r | answer=%r | model=claude-sonnet-4-6 | max_tokens=1100',
+            '[ZenAI] generate_idea_task_breakdown_reply | idea_id=%s | idea_title=%r | answer=%r | model=claude-sonnet-4-6 | max_tokens=4096',
             idea.id, idea.title, clarifying_answer,
         )
         logger.debug('[ZenAI] idea_task_breakdown prompt payload: %s', json.dumps(prompt, ensure_ascii=False))
@@ -1031,7 +1039,7 @@ def generate_idea_task_breakdown_reply(idea, clarifying_question, clarifying_ans
         try:
             response = client.messages.create(
                 model='claude-sonnet-4-6',
-                max_tokens=1100,
+                max_tokens=4096,
                 temperature=0.4,
                 system=system_prompt,
                 messages=[
@@ -1045,13 +1053,21 @@ def generate_idea_task_breakdown_reply(idea, clarifying_question, clarifying_ans
             logger.exception('[ZenAI] generate_idea_task_breakdown_reply API call failed: %s', exc)
             return build_idea_task_breakdown_fallback(idea, clarifying_question, clarifying_answer)
         _elapsed = time.monotonic() - _t0
+        _stop_reason = getattr(response, 'stop_reason', 'unknown')
+        _usage = getattr(response, 'usage', None)
         logger.info(
             '[ZenAI] generate_idea_task_breakdown_reply response received | elapsed=%.2fs | stop_reason=%s | input_tokens=%s | output_tokens=%s',
             _elapsed,
-            getattr(response, 'stop_reason', 'unknown'),
-            getattr(getattr(response, 'usage', None), 'input_tokens', '?'),
-            getattr(getattr(response, 'usage', None), 'output_tokens', '?'),
+            _stop_reason,
+            getattr(_usage, 'input_tokens', '?'),
+            getattr(_usage, 'output_tokens', '?'),
         )
+        if _stop_reason == 'max_tokens':
+            logger.warning(
+                '[ZenAI] generate_idea_task_breakdown_reply TRUNCATED by max_tokens — raise limit or shorten prompt | '
+                'output_tokens=%s | idea_id=%s | idea_title=%r',
+                getattr(_usage, 'output_tokens', '?'), idea.id, idea.title,
+            )
         if response.content:
             raw_text = response.content[0].text
             logger.debug('[ZenAI] generate_idea_task_breakdown_reply raw response: %s', raw_text)
