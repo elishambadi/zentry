@@ -412,7 +412,7 @@ function getTaskCardHtml(ideaId, task) {
       <div class="flex items-start justify-between gap-2">
         <p class="text-sm font-semibold text-gray-900 leading-snug">${escapeHtml(task.title || '')}</p>
         <button
-          onclick='addIdeaTask(${ideaId}, ${JSON.stringify(task).replace(/'/g, "&#39;")})'
+          onclick='addIdeaTask(${ideaId}, ${JSON.stringify(task).replace(/'/g, "&#39;")}, this)'
           class="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded-md font-medium"
         >+ Add</button>
       </div>
@@ -430,7 +430,9 @@ function getTaskCardHtml(ideaId, task) {
 }
 
 // ── Add task to calendar ───────────────────────────────────────────────────────
-function addIdeaTask(ideaId, task) {
+function addIdeaTask(ideaId, task, btn) {
+  btn.disabled = true;
+  btn.textContent = '…';
   const payload = { ...task, recommended_date: task.recommended_date || '{{ today|date:"Y-m-d" }}' };
   fetch('{% url "zenai_add_suggested_task" %}', {
     method: 'POST',
@@ -440,16 +442,18 @@ function addIdeaTask(ideaId, task) {
   .then(r => r.json())
   .then(data => {
     if (data.success) {
-      const btn = event.target;
       btn.textContent = '✓ Added';
-      btn.disabled = true;
       btn.className = btn.className.replace('bg-indigo-600 hover:bg-indigo-700', 'bg-green-500 cursor-default');
       return;
     }
+    btn.disabled = false;
+    btn.textContent = '+ Add';
     alert(data.error || 'Could not add task.');
   })
   .catch((err) => {
     console.error(err);
+    btn.disabled = false;
+    btn.textContent = '+ Add';
     alert('Network error. Please try again.');
   });
 }
