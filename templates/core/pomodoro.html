@@ -148,29 +148,12 @@
         <p class="text-xs text-gray-400" id="focus-task-meta"></p>
       </div>
 
-      {# Timer ring #}
-      <div class="relative flex items-center justify-center">
-        <svg class="absolute" width="220" height="220" viewBox="0 0 220 220">
-          <circle cx="110" cy="110" r="100" fill="none" stroke="#e5e7eb" stroke-width="8"/>
-          <circle
-            id="timer-ring"
-            cx="110" cy="110" r="100"
-            fill="none"
-            stroke="#6366f1"
-            stroke-width="8"
-            stroke-linecap="round"
-            stroke-dasharray="628.3"
-            stroke-dashoffset="0"
-            transform="rotate(-90 110 110)"
-            style="transition: stroke-dashoffset 1s linear;"
-          />
-        </svg>
-        <div class="flex flex-col items-center z-10">
-          <div class="text-6xl font-mono font-bold text-gray-900 tracking-tighter leading-none">
-            <span id="timer-min">25</span><span class="colon-blink">:</span><span id="timer-sec">00</span>
-          </div>
-          <p class="text-[10px] text-gray-400 mt-2 uppercase tracking-widest" id="timer-phase-label">Work</p>
+      {# Timer display #}
+      <div class="flex flex-col items-center">
+        <div class="text-8xl font-mono font-bold text-gray-900 tracking-tighter leading-none">
+          <span id="timer-min">25</span><span class="colon-blink">:</span><span id="timer-sec">00</span>
         </div>
+        <p class="text-[10px] text-gray-400 mt-3 uppercase tracking-widest" id="timer-phase-label">Work</p>
       </div>
 
       {# Controls #}
@@ -225,29 +208,12 @@
         <p class="text-gray-500 text-sm max-w-xs leading-relaxed">Step away from the screen. Breathe. Come back ready.</p>
       </div>
 
-      {# Break timer #}
-      <div class="relative flex items-center justify-center">
-        <svg class="absolute" width="220" height="220" viewBox="0 0 220 220">
-          <circle cx="110" cy="110" r="100" fill="none" stroke="#e5e7eb" stroke-width="8"/>
-          <circle
-            id="break-ring"
-            cx="110" cy="110" r="100"
-            fill="none"
-            stroke="#10b981"
-            stroke-width="8"
-            stroke-linecap="round"
-            stroke-dasharray="628.3"
-            stroke-dashoffset="0"
-            transform="rotate(-90 110 110)"
-            style="transition: stroke-dashoffset 1s linear;"
-          />
-        </svg>
-        <div class="flex flex-col items-center z-10">
-          <div class="text-6xl font-mono font-bold text-gray-900 tracking-tighter leading-none">
-            <span id="break-min">05</span><span class="colon-blink">:</span><span id="break-sec">00</span>
-          </div>
-          <p class="text-[10px] text-gray-400 mt-2 uppercase tracking-widest" id="break-phase-label">Break</p>
+      {# Break timer display #}
+      <div class="flex flex-col items-center">
+        <div class="text-8xl font-mono font-bold text-gray-900 tracking-tighter leading-none">
+          <span id="break-min">05</span><span class="colon-blink">:</span><span id="break-sec">00</span>
         </div>
+        <p class="text-[10px] text-gray-400 mt-3 uppercase tracking-widest" id="break-phase-label">Break</p>
       </div>
 
       {# After-break actions — shown when break ends #}
@@ -275,7 +241,6 @@
 
 <script>
 // ── Constants ──────────────────────────────────────────────────────────────────
-const RING_CIRCUM          = 628.3; // 2π × 100
 const SESSIONS_BEFORE_LONG = 4;
 const STORAGE_KEY          = 'zentry_pomo_v2';
 
@@ -373,26 +338,19 @@ function computeSecsLeft() {
 }
 
 function renderDisplay() {
-  const secs  = computeSecsLeft();
-  const total = S.totalSecs;
+  const secs = computeSecsLeft();
   const m = Math.floor(secs / 60);
   const s = secs % 60;
-  const progress = total > 0 ? secs / total : 0;
-  const offset = RING_CIRCUM * (1 - progress);
 
   if (S.phase === 'work' || S.phase === 'idle') {
     document.getElementById('timer-min').textContent = pad(m);
     document.getElementById('timer-sec').textContent = pad(s);
-    const ring = document.getElementById('timer-ring');
-    if (ring) ring.style.strokeDashoffset = offset;
   } else {
     document.getElementById('break-min').textContent = pad(m);
     document.getElementById('break-sec').textContent = pad(s);
-    const ring = document.getElementById('break-ring');
-    if (ring) ring.style.strokeDashoffset = offset;
   }
 
-  // Page title ticker — subtle awareness even when tab is backgrounded
+  // Page title ticker
   document.title = `${pad(m)}:${pad(s)} — Focus`;
 }
 
