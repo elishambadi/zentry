@@ -16,6 +16,7 @@ import json
 import calendar
 import logging
 import time
+import httpx
 
 logger = logging.getLogger('core.zenai')
 
@@ -632,7 +633,7 @@ def generate_subject_task_breakdown_reply(section, subject_title, subject_descri
 
     api_key = config('ANTHROPIC_API_KEY', default='').strip()
     if Anthropic and api_key:
-        client = Anthropic(api_key=api_key)
+        client = Anthropic(api_key=api_key, http_client=httpx.Client(timeout=105.0))
         prompt = {
             'section': section,
             'subject_title': subject_title,
@@ -1022,7 +1023,7 @@ def generate_idea_task_breakdown_reply(idea, clarifying_question, clarifying_ans
 
     api_key = config('ANTHROPIC_API_KEY', default='').strip()
     if Anthropic and api_key:
-        client = Anthropic(api_key=api_key)
+        client = Anthropic(api_key=api_key, http_client=httpx.Client(timeout=105.0))
         prompt = {
             'idea_title': idea.title,
             'idea_description': idea.description,
