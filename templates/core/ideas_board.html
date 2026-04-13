@@ -448,7 +448,10 @@ function addIdeaTask(ideaId, task) {
     }
     alert(data.error || 'Could not add task.');
   })
-  .catch(() => alert('Network error while adding task.'));
+  .catch((err) => {
+    console.error(err);
+    alert('Network error. Please try again.');
+  });
 }
 
 // ── Convert to Task modal ──────────────────────────────────────────────────────
