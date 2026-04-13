@@ -14,6 +14,11 @@ from django.utils import timezone
 from decouple import config
 import json
 import calendar
+import logging
+import time
+
+logger = logging.getLogger('core.zenai')
+
 from .models import (
     Task,
     JournalEntry,
@@ -450,29 +455,55 @@ def generate_subject_clarifying_question(section, subject_title, subject_descrip
             'extra_notes': extra_notes,
             'today': date.today().isoformat(),
         }
-        response = client.messages.create(
-            model='claude-sonnet-4-6',
-            max_tokens=220,
-            temperature=0.3,
-            system=system_prompt,
-            messages=[
-                {
-                    'role': 'user',
-                    'content': f"Ask the single best clarifying question for this subject: {json.dumps(prompt, ensure_ascii=False)}",
-                }
-            ],
+        logger.info(
+            '[ZenAI] generate_subject_clarifying_question | section=%s | subject=%r | model=claude-sonnet-4-6 | max_tokens=220',
+            section, subject_title,
+        )
+        logger.debug('[ZenAI] subject_clarifying_question prompt payload: %s', json.dumps(prompt, ensure_ascii=False))
+        _t0 = time.monotonic()
+        try:
+            response = client.messages.create(
+                model='claude-sonnet-4-6',
+                max_tokens=220,
+                temperature=0.3,
+                system=system_prompt,
+                messages=[
+                    {
+                        'role': 'user',
+                        'content': f"Ask the single best clarifying question for this subject: {json.dumps(prompt, ensure_ascii=False)}",
+                    }
+                ],
+            )
+        except Exception as exc:
+            logger.exception('[ZenAI] generate_subject_clarifying_question API call failed: %s', exc)
+            return build_subject_clarifying_question_fallback(section, subject_title)
+        _elapsed = time.monotonic() - _t0
+        logger.info(
+            '[ZenAI] generate_subject_clarifying_question response received | elapsed=%.2fs | stop_reason=%s | input_tokens=%s | output_tokens=%s',
+            _elapsed,
+            getattr(response, 'stop_reason', 'unknown'),
+            getattr(getattr(response, 'usage', None), 'input_tokens', '?'),
+            getattr(getattr(response, 'usage', None), 'output_tokens', '?'),
         )
         if response.content:
-            parsed = parse_zenai_json_response(response.content[0].text)
+            raw_text = response.content[0].text
+            logger.debug('[ZenAI] generate_subject_clarifying_question raw response: %s', raw_text)
+            parsed = parse_zenai_json_response(raw_text)
             if parsed:
                 question = (parsed.get('clarifying_question') or '').strip()
+                logger.info('[ZenAI] generate_subject_clarifying_question parsed | question=%r', question)
                 if question:
                     return {
                         'response_markdown': (parsed.get('response_markdown') or '').strip(),
                         'clarifying_question': question,
                         'step': 1,
                     }
+            else:
+                logger.warning('[ZenAI] generate_subject_clarifying_question JSON parse failed | raw=%r', raw_text[:300])
+        else:
+            logger.warning('[ZenAI] generate_subject_clarifying_question returned empty content')
 
+    logger.info('[ZenAI] generate_subject_clarifying_question falling back to static payload | section=%s | subject=%r', section, subject_title)
     return build_subject_clarifying_question_fallback(section, subject_title)
 
 
@@ -611,31 +642,55 @@ def generate_subject_task_breakdown_reply(section, subject_title, subject_descri
             'context': context_data,
             'today': date.today().isoformat(),
         }
-        response = client.messages.create(
-            model='claude-sonnet-4-6',
-            max_tokens=1100,
-            temperature=0.4,
-            system=system_prompt,
-            messages=[
-                {
-                    'role': 'user',
-                    'content': f"Create the concrete execution tasks for this clarified subject: {json.dumps(prompt, ensure_ascii=False)}",
-                }
-            ],
+        logger.info(
+            '[ZenAI] generate_subject_task_breakdown_reply | section=%s | subject=%r | answer=%r | model=claude-sonnet-4-6 | max_tokens=1100',
+            section, subject_title, clarifying_answer,
+        )
+        logger.debug('[ZenAI] subject_task_breakdown prompt payload: %s', json.dumps(prompt, ensure_ascii=False))
+        _t0 = time.monotonic()
+        try:
+            response = client.messages.create(
+                model='claude-sonnet-4-6',
+                max_tokens=1100,
+                temperature=0.4,
+                system=system_prompt,
+                messages=[
+                    {
+                        'role': 'user',
+                        'content': f"Create the concrete execution tasks for this clarified subject: {json.dumps(prompt, ensure_ascii=False)}",
+                    }
+                ],
+            )
+        except Exception as exc:
+            logger.exception('[ZenAI] generate_subject_task_breakdown_reply API call failed: %s', exc)
+            return fallback_payload
+        _elapsed = time.monotonic() - _t0
+        logger.info(
+            '[ZenAI] generate_subject_task_breakdown_reply response received | elapsed=%.2fs | stop_reason=%s | input_tokens=%s | output_tokens=%s',
+            _elapsed,
+            getattr(response, 'stop_reason', 'unknown'),
+            getattr(getattr(response, 'usage', None), 'input_tokens', '?'),
+            getattr(getattr(response, 'usage', None), 'output_tokens', '?'),
         )
         if response.content:
-            parsed = parse_zenai_json_response(response.content[0].text)
+            raw_text = response.content[0].text
+            logger.debug('[ZenAI] generate_subject_task_breakdown_reply raw response: %s', raw_text)
+            parsed = parse_zenai_json_response(raw_text)
             if parsed:
+                tasks = normalize_session_suggested_tasks(parsed.get('suggested_tasks') or [], fallback_payload)
+                logger.info('[ZenAI] generate_subject_task_breakdown_reply parsed | task_count=%d | focus_target=%r', len(tasks), (parsed.get('focus_target') or '')[:80])
                 return {
                     'focus_target': (parsed.get('focus_target') or '').strip(),
                     'response_markdown': (parsed.get('response_markdown') or '').strip(),
-                    'suggested_tasks': normalize_session_suggested_tasks(
-                        parsed.get('suggested_tasks') or [],
-                        fallback_payload,
-                    ),
+                    'suggested_tasks': tasks,
                     'step': 2,
                 }
+            else:
+                logger.warning('[ZenAI] generate_subject_task_breakdown_reply JSON parse failed | raw=%r', raw_text[:300])
+        else:
+            logger.warning('[ZenAI] generate_subject_task_breakdown_reply returned empty content')
 
+    logger.info('[ZenAI] generate_subject_task_breakdown_reply falling back to static payload | section=%s | subject=%r', section, subject_title)
     return fallback_payload
 
 
@@ -716,23 +771,53 @@ def generate_zenai_reply(user_prompt, context_data, history):
             f"Recent Conversation:\n{history_text}\n\n"
             f"User Prompt:\n{user_prompt}"
         )
-        response = client.messages.create(
-            model='claude-sonnet-4-6',
-            max_tokens=900,
-            temperature=0.5,
-            system=prompt,
-            messages=[{'role': 'user', 'content': message}],
+        logger.info(
+            '[ZenAI] generate_zenai_reply | user_prompt=%r | slot_date=%s | model=claude-sonnet-4-6 | max_tokens=900',
+            user_prompt[:120], slot_date,
+        )
+        logger.debug('[ZenAI] generate_zenai_reply full message: %s', message[:600])
+        _t0 = time.monotonic()
+        try:
+            response = client.messages.create(
+                model='claude-sonnet-4-6',
+                max_tokens=900,
+                temperature=0.5,
+                system=prompt,
+                messages=[{'role': 'user', 'content': message}],
+            )
+        except Exception as exc:
+            logger.exception('[ZenAI] generate_zenai_reply API call failed: %s', exc)
+            return build_fallback_zen_payload(context_data)
+        _elapsed = time.monotonic() - _t0
+        logger.info(
+            '[ZenAI] generate_zenai_reply response received | elapsed=%.2fs | stop_reason=%s | input_tokens=%s | output_tokens=%s',
+            _elapsed,
+            getattr(response, 'stop_reason', 'unknown'),
+            getattr(getattr(response, 'usage', None), 'input_tokens', '?'),
+            getattr(getattr(response, 'usage', None), 'output_tokens', '?'),
         )
         if response.content:
-            parsed = parse_zenai_json_response(response.content[0].text)
+            raw_text = response.content[0].text
+            logger.debug('[ZenAI] generate_zenai_reply raw response: %s', raw_text)
+            parsed = parse_zenai_json_response(raw_text)
             if parsed:
+                tasks = normalize_suggested_tasks(parsed.get('suggested_tasks') or [])
+                logger.info(
+                    '[ZenAI] generate_zenai_reply parsed | task_count=%d | clarifying_q_count=%d | focus_target=%r',
+                    len(tasks), len(parsed.get('clarifying_questions') or []), (parsed.get('focus_target') or '')[:80],
+                )
                 return {
                     'focus_target': (parsed.get('focus_target') or '').strip(),
                     'response_markdown': (parsed.get('response_markdown') or '').strip(),
                     'clarifying_questions': parsed.get('clarifying_questions') or [],
-                    'suggested_tasks': normalize_suggested_tasks(parsed.get('suggested_tasks') or []),
+                    'suggested_tasks': tasks,
                 }
+            else:
+                logger.warning('[ZenAI] generate_zenai_reply JSON parse failed | raw=%r', raw_text[:300])
+        else:
+            logger.warning('[ZenAI] generate_zenai_reply returned empty content')
     else:
+        logger.warning('[ZenAI] generate_zenai_reply skipped — no Anthropic client or API key configured')
         return build_fallback_zen_payload(context_data)
 
 
@@ -767,28 +852,54 @@ def generate_idea_clarifying_question(idea):
             'idea_description': idea.description,
             'today': date.today().isoformat(),
         }
-        response = client.messages.create(
-            model='claude-sonnet-4-6',
-            max_tokens=220,
-            temperature=0.3,
-            system=system_prompt,
-            messages=[
-                {
-                    'role': 'user',
-                    'content': f"Ask the single best clarifying question for this idea: {json.dumps(prompt, ensure_ascii=False)}",
-                }
-            ],
+        logger.info(
+            '[ZenAI] generate_idea_clarifying_question | idea_id=%s | idea_title=%r | model=claude-sonnet-4-6 | max_tokens=220',
+            idea.id, idea.title,
+        )
+        logger.debug('[ZenAI] idea_clarifying_question prompt payload: %s', json.dumps(prompt, ensure_ascii=False))
+        _t0 = time.monotonic()
+        try:
+            response = client.messages.create(
+                model='claude-sonnet-4-6',
+                max_tokens=220,
+                temperature=0.3,
+                system=system_prompt,
+                messages=[
+                    {
+                        'role': 'user',
+                        'content': f"Ask the single best clarifying question for this idea: {json.dumps(prompt, ensure_ascii=False)}",
+                    }
+                ],
+            )
+        except Exception as exc:
+            logger.exception('[ZenAI] generate_idea_clarifying_question API call failed: %s', exc)
+            return build_idea_clarifying_question_fallback(idea)
+        _elapsed = time.monotonic() - _t0
+        logger.info(
+            '[ZenAI] generate_idea_clarifying_question response received | elapsed=%.2fs | stop_reason=%s | input_tokens=%s | output_tokens=%s',
+            _elapsed,
+            getattr(response, 'stop_reason', 'unknown'),
+            getattr(getattr(response, 'usage', None), 'input_tokens', '?'),
+            getattr(getattr(response, 'usage', None), 'output_tokens', '?'),
         )
         if response.content:
-            parsed = parse_zenai_json_response(response.content[0].text)
+            raw_text = response.content[0].text
+            logger.debug('[ZenAI] generate_idea_clarifying_question raw response: %s', raw_text)
+            parsed = parse_zenai_json_response(raw_text)
             if parsed:
                 question = (parsed.get('clarifying_question') or '').strip()
+                logger.info('[ZenAI] generate_idea_clarifying_question parsed | question=%r', question)
                 if question:
                     return {
                         'response_markdown': (parsed.get('response_markdown') or '').strip(),
                         'clarifying_question': question,
                     }
+            else:
+                logger.warning('[ZenAI] generate_idea_clarifying_question JSON parse failed | raw=%r', raw_text[:300])
+        else:
+            logger.warning('[ZenAI] generate_idea_clarifying_question returned empty content')
 
+    logger.info('[ZenAI] generate_idea_clarifying_question falling back to static payload | idea_id=%s | idea_title=%r', idea.id, idea.title)
     return build_idea_clarifying_question_fallback(idea)
 
 
@@ -911,25 +1022,49 @@ def generate_idea_task_breakdown_reply(idea, clarifying_question, clarifying_ans
             'clarifying_answer': clarifying_answer,
             'today': date.today().isoformat(),
         }
-        response = client.messages.create(
-            model='claude-sonnet-4-6',
-            max_tokens=1100,
-            temperature=0.4,
-            system=system_prompt,
-            messages=[
-                {
-                    'role': 'user',
-                    'content': f"Create the concrete execution tasks for this clarified idea: {json.dumps(prompt, ensure_ascii=False)}",
-                }
-            ],
+        logger.info(
+            '[ZenAI] generate_idea_task_breakdown_reply | idea_id=%s | idea_title=%r | answer=%r | model=claude-sonnet-4-6 | max_tokens=1100',
+            idea.id, idea.title, clarifying_answer,
+        )
+        logger.debug('[ZenAI] idea_task_breakdown prompt payload: %s', json.dumps(prompt, ensure_ascii=False))
+        _t0 = time.monotonic()
+        try:
+            response = client.messages.create(
+                model='claude-sonnet-4-6',
+                max_tokens=1100,
+                temperature=0.4,
+                system=system_prompt,
+                messages=[
+                    {
+                        'role': 'user',
+                        'content': f"Create the concrete execution tasks for this clarified idea: {json.dumps(prompt, ensure_ascii=False)}",
+                    }
+                ],
+            )
+        except Exception as exc:
+            logger.exception('[ZenAI] generate_idea_task_breakdown_reply API call failed: %s', exc)
+            return build_idea_task_breakdown_fallback(idea, clarifying_question, clarifying_answer)
+        _elapsed = time.monotonic() - _t0
+        logger.info(
+            '[ZenAI] generate_idea_task_breakdown_reply response received | elapsed=%.2fs | stop_reason=%s | input_tokens=%s | output_tokens=%s',
+            _elapsed,
+            getattr(response, 'stop_reason', 'unknown'),
+            getattr(getattr(response, 'usage', None), 'input_tokens', '?'),
+            getattr(getattr(response, 'usage', None), 'output_tokens', '?'),
         )
         if response.content:
-            parsed = parse_zenai_json_response(response.content[0].text)
+            raw_text = response.content[0].text
+            logger.debug('[ZenAI] generate_idea_task_breakdown_reply raw response: %s', raw_text)
+            parsed = parse_zenai_json_response(raw_text)
             if parsed:
                 normalized_tasks = normalize_idea_suggested_tasks(
                     parsed.get('suggested_tasks') or [],
                     idea=idea,
                     clarifying_answer=clarifying_answer,
+                )
+                logger.info(
+                    '[ZenAI] generate_idea_task_breakdown_reply parsed | task_count=%d | focus_target=%r',
+                    len(normalized_tasks), (parsed.get('focus_target') or '')[:80],
                 )
                 if normalized_tasks:
                     return {
@@ -937,7 +1072,14 @@ def generate_idea_task_breakdown_reply(idea, clarifying_question, clarifying_ans
                         'response_markdown': (parsed.get('response_markdown') or '').strip(),
                         'suggested_tasks': normalized_tasks,
                     }
+                else:
+                    logger.warning('[ZenAI] generate_idea_task_breakdown_reply normalization returned 0 tasks, will fallback')
+            else:
+                logger.warning('[ZenAI] generate_idea_task_breakdown_reply JSON parse failed | raw=%r', raw_text[:300])
+        else:
+            logger.warning('[ZenAI] generate_idea_task_breakdown_reply returned empty content')
 
+    logger.info('[ZenAI] generate_idea_task_breakdown_reply falling back to static payload | idea_id=%s | idea_title=%r', idea.id, idea.title)
     return build_idea_task_breakdown_fallback(idea, clarifying_question, clarifying_answer)
 
 def home(request):
