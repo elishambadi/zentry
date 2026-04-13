@@ -41,6 +41,10 @@ urlpatterns = [
     path('task/<int:task_id>/link/add/', views.add_link_to_task, name='add_link_to_task'),
     path('link/delete/<int:link_id>/', views.delete_link, name='delete_link'),
     
+    # Pomodoro
+    path('pomodoro/', views.pomodoro_view, name='pomodoro'),
+    path('pomodoro/complete/<int:task_id>/', views.pomodoro_complete_task, name='pomodoro_complete_task'),
+
     # Ideas board
     path('ideas/', views.ideas_board, name='ideas_board'),
     path('idea/<int:idea_id>/breakdown/', views.idea_ai_breakdown, name='idea_ai_breakdown'),

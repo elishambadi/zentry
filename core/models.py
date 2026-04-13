@@ -222,6 +222,7 @@ class JournalEntry(models.Model):
 
 class UserPreference(models.Model):
     DEFAULT_PAGE_CHOICES = [
+        ('pomodoro', 'Pomodoro Focus'),
         ('daily', 'Daily View'),
         ('calendar', 'Calendar'),
         ('ideas', 'Ideas Board'),
@@ -231,7 +232,7 @@ class UserPreference(models.Model):
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='preferences')
-    default_page = models.CharField(max_length=20, choices=DEFAULT_PAGE_CHOICES, default='daily')
+    default_page = models.CharField(max_length=20, choices=DEFAULT_PAGE_CHOICES, default='pomodoro')
     monthly_books = models.TextField(blank=True)
     favorite_authors = models.TextField(blank=True)
     updated_at = models.DateTimeField(auto_now=True)

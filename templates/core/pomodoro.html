@@ -1,0 +1,738 @@
+{% extends 'base.html' %}
+
+{% block title %}Focus — Zentry{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* Override base body bg for this page only */
+  body { background-color: #0f0f0f !important; }
+
+  @keyframes pulse-ring {
+    0%   { box-shadow: 0 0 0 0   rgba(99,102,241,0.4); }
+    70%  { box-shadow: 0 0 0 18px rgba(99,102,241,0);   }
+    100% { box-shadow: 0 0 0 0   rgba(99,102,241,0);    }
+  }
+  .pulse-ring { animation: pulse-ring 2s ease-out infinite; }
+
+  @keyframes tick {
+    0%  { opacity: 1; }
+    49% { opacity: 1; }
+    50% { opacity: 0.3; }
+    99% { opacity: 0.3; }
+    100%{ opacity: 1; }
+  }
+  .colon-blink { animation: tick 1s step-start infinite; }
+</style>
+{% endblock %}
+
+{% block content %}
+{# Full-height shell — override base padding to go edge-to-edge #}
+<div class="-mx-6 -mt-8 min-h-[calc(100vh-0px)] flex bg-[#0f0f0f] text-gray-100 select-none" id="pomodoroApp">
+
+  {# ── LEFT SIDEBAR — task picker ──────────────────────────────────────────── #}
+  <aside class="w-64 shrink-0 flex flex-col border-r border-white/5 overflow-hidden">
+
+    {# Header + Mode toggle #}
+    <div class="px-5 pt-6 pb-4 border-b border-white/5 flex flex-col gap-3">
+      <div>
+        <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Today's tasks</p>
+        <p class="text-xs text-gray-600" id="sidebar-date">{{ today|date:"l, j M" }}</p>
+      </div>
+      {# Mode selector: 25/5 vs 50/10 #}
+      <div class="flex items-center justify-between">
+        <span class="text-[10px] text-gray-600 uppercase tracking-widest font-semibold">Mode</span>
+        <div class="flex bg-white/5 rounded-lg p-0.5 gap-0.5">
+          <button id="mode-btn-25" onclick="setMode('25')"
+            class="px-3 py-1 rounded-md text-xs font-semibold bg-white text-gray-900 transition-colors">
+            25/5
+          </button>
+          <button id="mode-btn-50" onclick="setMode('50')"
+            class="px-3 py-1 rounded-md text-xs font-semibold text-gray-500 hover:text-gray-300 transition-colors">
+            50/10
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {# Recommendation label #}
+    <div class="px-5 py-2 border-b border-white/5">
+      {% if is_morning %}
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[11px] font-semibold text-amber-400">
+        ☀️ Morning — deep work first
+      </span>
+      {% else %}
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 text-[11px] font-semibold text-indigo-400">
+        🌙 Afternoon — sustain momentum
+      </span>
+      {% endif %}
+    </div>
+
+    {# Task list #}
+    <div class="flex-1 overflow-y-auto py-2" id="taskList">
+      {% if tasks %}
+        {% for task in tasks %}
+        <button
+          onclick="selectTask({{ task.id }}, '{{ task.title|escapejs }}', '{{ task.tag }}', '{{ task.priority }}')"
+          id="task-btn-{{ task.id }}"
+          class="w-full text-left px-5 py-3 hover:bg-white/5 transition-colors group border-l-2 border-transparent"
+        >
+          <div class="flex items-start gap-2">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm text-gray-300 group-hover:text-white truncate leading-snug" id="task-title-label-{{ task.id }}">{{ task.title }}</p>
+              <div class="flex items-center gap-1.5 mt-1">
+                {% if task.priority == 'U' %}
+                <span class="text-[10px] font-semibold text-red-400">URGENT</span>
+                {% elif task.priority == 'H' %}
+                <span class="text-[10px] font-semibold text-orange-400">HIGH</span>
+                {% elif task.priority == 'M' %}
+                <span class="text-[10px] text-gray-500">MED</span>
+                {% else %}
+                <span class="text-[10px] text-gray-600">LOW</span>
+                {% endif %}
+                <span class="text-[10px] text-gray-600">·</span>
+                <span class="text-[10px] text-gray-500">{{ task.get_tag_display }}</span>
+                {% if task.is_rest %}
+                <span class="text-[10px] text-emerald-500">· REST</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </button>
+        {% endfor %}
+      {% else %}
+        <div class="px-5 py-8 text-center">
+          <p class="text-sm text-gray-600">No tasks for today.</p>
+          <a href="{% url 'daily_view' today.year today.month today.day %}" class="mt-2 inline-block text-xs text-indigo-400 hover:text-indigo-300 underline">Add tasks →</a>
+        </div>
+      {% endif %}
+    </div>
+
+    {# Bottom: link to daily view #}
+    <div class="px-5 py-4 border-t border-white/5">
+      <a href="{% url 'daily_view' today.year today.month today.day %}" class="text-xs text-gray-600 hover:text-gray-400 transition-colors">
+        View full day →
+      </a>
+    </div>
+  </aside>
+
+  {# ── MAIN FOCUS AREA ─────────────────────────────────────────────────────── #}
+  <main class="flex-1 flex flex-col items-center justify-center px-8 relative overflow-hidden">
+
+    {# Subtle background glow when running #}
+    <div id="focus-glow" class="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-1000"
+         style="background: radial-gradient(ellipse at 50% 40%, rgba(99,102,241,0.07) 0%, transparent 70%);"></div>
+
+    {# ── IDLE STATE — no task selected ────────────────────────────────────── #}
+    <div id="state-idle" class="flex flex-col items-center text-center space-y-4">
+      <div class="text-6xl mb-2">🍅</div>
+      <p class="text-xl font-semibold text-gray-400" id="idle-headline">Select a task to begin</p>
+      <p class="text-sm text-gray-600 max-w-xs">
+        Pick a task from the sidebar.<br>
+        {% if is_morning %}High and Urgent work tasks are shown first — protect your deep work hours.{% else %}Keep your momentum going into the afternoon.{% endif %}
+      </p>
+    </div>
+
+    {# ── ACTIVE STATE — timer running ─────────────────────────────────────── #}
+    <div id="state-active" class="hidden flex flex-col items-center text-center w-full max-w-sm space-y-8">
+
+      {# Session type badge #}
+      <div id="session-badge" class="inline-flex items-center gap-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-4 py-1.5 text-xs font-semibold text-indigo-300">
+        🎯 Deep work
+      </div>
+
+      {# Current task #}
+      <div class="space-y-1">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-gray-600">Focusing on</p>
+        <h1 class="text-2xl font-bold text-white leading-tight" id="focus-task-title">—</h1>
+        <p class="text-xs text-gray-500" id="focus-task-meta"></p>
+      </div>
+
+      {# Timer ring #}
+      <div class="relative flex items-center justify-center">
+        <svg class="absolute" width="220" height="220" viewBox="0 0 220 220">
+          <circle cx="110" cy="110" r="100" fill="none" stroke="#1f1f1f" stroke-width="8"/>
+          <circle
+            id="timer-ring"
+            cx="110" cy="110" r="100"
+            fill="none"
+            stroke="#6366f1"
+            stroke-width="8"
+            stroke-linecap="round"
+            stroke-dasharray="628.3"
+            stroke-dashoffset="0"
+            transform="rotate(-90 110 110)"
+            style="transition: stroke-dashoffset 1s linear;"
+          />
+        </svg>
+        <div class="flex flex-col items-center z-10">
+          <div class="text-6xl font-mono font-bold text-white tracking-tighter leading-none">
+            <span id="timer-min">25</span><span class="colon-blink">:</span><span id="timer-sec">00</span>
+          </div>
+          <p class="text-xs text-gray-600 mt-2 uppercase tracking-widest" id="timer-phase-label">Work</p>
+        </div>
+      </div>
+
+      {# Controls #}
+      <div class="flex items-center gap-4">
+        <button id="btn-start"
+          onclick="startTimer()"
+          class="pulse-ring bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-8 py-3 rounded-full transition-colors">
+          Start
+        </button>
+        <button id="btn-pause"
+          onclick="pauseTimer()"
+          class="hidden bg-white/10 hover:bg-white/15 text-white text-sm font-semibold px-8 py-3 rounded-full transition-colors">
+          Pause
+        </button>
+        <button id="btn-resume"
+          onclick="resumeTimer()"
+          class="hidden bg-white/10 hover:bg-white/15 text-white text-sm font-semibold px-8 py-3 rounded-full transition-colors">
+          Resume
+        </button>
+        <button
+          onclick="skipPhase()"
+          class="text-gray-600 hover:text-gray-400 text-xs transition-colors">
+          Skip →
+        </button>
+      </div>
+
+      {# Session counter #}
+      <div class="flex items-center gap-1.5" id="session-dots">
+        {# filled by JS #}
+      </div>
+
+      {# Mark done / change task #}
+      <div class="flex items-center gap-6 text-xs">
+        <button onclick="markDone()" class="text-emerald-400 hover:text-emerald-300 transition-colors font-medium">
+          ✓ Mark done
+        </button>
+        <button onclick="changeTask()" class="text-gray-600 hover:text-gray-400 transition-colors">
+          Change task
+        </button>
+      </div>
+    </div>
+
+    {# ── BREAK STATE — rest between sessions ──────────────────────────────── #}
+    <div id="state-break" class="hidden flex flex-col items-center text-center w-full max-w-sm space-y-8">
+
+      <div id="break-badge" class="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-4 py-1.5 text-xs font-semibold text-emerald-300">
+        ☕ Short break
+      </div>
+
+      <div class="space-y-1">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-gray-600">Rest your mind</p>
+        <p class="text-gray-400 text-sm max-w-xs">Step away from the screen. Breathe. Come back ready.</p>
+      </div>
+
+      {# Break timer #}
+      <div class="relative flex items-center justify-center">
+        <svg class="absolute" width="220" height="220" viewBox="0 0 220 220">
+          <circle cx="110" cy="110" r="100" fill="none" stroke="#1f1f1f" stroke-width="8"/>
+          <circle
+            id="break-ring"
+            cx="110" cy="110" r="100"
+            fill="none"
+            stroke="#10b981"
+            stroke-width="8"
+            stroke-linecap="round"
+            stroke-dasharray="628.3"
+            stroke-dashoffset="0"
+            transform="rotate(-90 110 110)"
+            style="transition: stroke-dashoffset 1s linear;"
+          />
+        </svg>
+        <div class="flex flex-col items-center z-10">
+          <div class="text-6xl font-mono font-bold text-white tracking-tighter leading-none">
+            <span id="break-min">05</span><span class="colon-blink">:</span><span id="break-sec">00</span>
+          </div>
+          <p class="text-xs text-gray-600 mt-2 uppercase tracking-widest" id="break-phase-label">Break</p>
+        </div>
+      </div>
+
+      {# After-break actions — shown when break ends #}
+      <div id="break-end-actions" class="hidden space-y-3 w-full">
+        <p class="text-sm font-semibold text-white">Break over. What next?</p>
+        <button onclick="continueWithSameTask()"
+                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold py-3 rounded-full transition-colors">
+          Continue with same task
+        </button>
+        <button onclick="changeTask()"
+                class="w-full bg-white/8 hover:bg-white/12 text-gray-300 text-sm font-semibold py-3 rounded-full transition-colors">
+          Pick a different task
+        </button>
+      </div>
+
+      <div id="break-skip-btn">
+        <button onclick="endBreak()" class="text-xs text-gray-600 hover:text-gray-400 transition-colors">
+          Skip break →
+        </button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────────
+const RING_CIRCUM          = 628.3; // 2π × 100
+const SESSIONS_BEFORE_LONG = 4;
+const STORAGE_KEY          = 'zentry_pomo_v2';
+
+// Mode presets: [workSecs, shortBreakSecs, longBreakSecs]
+const MODES = {
+  '25': [25 * 60,  5 * 60, 15 * 60],
+  '50': [50 * 60, 10 * 60, 20 * 60],
+};
+
+const TASKS = {{ tasks_json|safe }};
+
+// ── Mutable state (single source of truth — mirrored to localStorage) ──────────
+let S = {
+  mode:              '25',      // '25' | '50'
+  phase:             'idle',    // 'idle' | 'work' | 'break'
+  isRunning:         false,
+  isPaused:          false,
+  endTime:           null,      // wall-clock ms when timer will hit 0 (while running)
+  pausedSecsLeft:    null,      // seconds left at the moment of pause
+  totalSecs:         25 * 60,   // full duration of current phase
+  sessionsCompleted: 0,
+  taskId:            null,
+  taskTitle:         '',
+  taskTag:           '',
+  taskPri:           '',
+};
+
+let tickInterval = null;
+
+// ── Persistence ────────────────────────────────────────────────────────────────
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); } catch {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const saved = JSON.parse(raw);
+    // Only restore if it was from today (same date)
+    if (!saved || !saved.taskId) return false;
+    Object.assign(S, saved);
+    return true;
+  } catch { return false; }
+}
+
+function clearState() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  S = {
+    mode: S.mode, phase: 'idle', isRunning: false, isPaused: false,
+    endTime: null, pausedSecsLeft: null, totalSecs: workSecs(),
+    sessionsCompleted: 0, taskId: null, taskTitle: '', taskTag: '', taskPri: '',
+  };
+}
+
+// ── Mode helpers ───────────────────────────────────────────────────────────────
+function workSecs()       { return MODES[S.mode][0]; }
+function shortBreakSecs() { return MODES[S.mode][1]; }
+function longBreakSecs()  { return MODES[S.mode][2]; }
+
+function setMode(m) {
+  if (S.isRunning || S.isPaused) {
+    if (!confirm('Changing the mode will reset the current timer. Continue?')) return;
+  }
+  S.mode = m;
+  // Update button styles
+  ['25','50'].forEach(k => {
+    const btn = document.getElementById(`mode-btn-${k}`);
+    if (!btn) return;
+    btn.className = k === m
+      ? 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-gray-900 transition-colors'
+      : 'px-3 py-1 rounded-md text-xs font-semibold text-gray-500 hover:text-gray-300 transition-colors';
+  });
+  // Reset timer if a task is selected
+  if (S.taskId) {
+    stopTick();
+    S.isRunning = false; S.isPaused = false;
+    S.endTime = null; S.pausedSecsLeft = null;
+    S.phase = 'work';
+    S.totalSecs = workSecs();
+    saveState();
+    showBtn('btn-start'); hideBtn('btn-pause'); hideBtn('btn-resume');
+    renderDisplay();
+    setState('active');
+  } else {
+    saveState();
+  }
+}
+
+// ── Display ────────────────────────────────────────────────────────────────────
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function computeSecsLeft() {
+  if (S.isPaused || !S.isRunning) {
+    return S.pausedSecsLeft !== null ? S.pausedSecsLeft : S.totalSecs;
+  }
+  if (S.endTime) {
+    return Math.max(0, Math.round((S.endTime - Date.now()) / 1000));
+  }
+  return S.totalSecs;
+}
+
+function renderDisplay() {
+  const secs  = computeSecsLeft();
+  const total = S.totalSecs;
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  const progress = total > 0 ? secs / total : 0;
+  const offset = RING_CIRCUM * (1 - progress);
+
+  if (S.phase === 'work' || S.phase === 'idle') {
+    document.getElementById('timer-min').textContent = pad(m);
+    document.getElementById('timer-sec').textContent = pad(s);
+    const ring = document.getElementById('timer-ring');
+    if (ring) ring.style.strokeDashoffset = offset;
+  } else {
+    document.getElementById('break-min').textContent = pad(m);
+    document.getElementById('break-sec').textContent = pad(s);
+    const ring = document.getElementById('break-ring');
+    if (ring) ring.style.strokeDashoffset = offset;
+  }
+
+  // Page title ticker — subtle awareness even when tab is backgrounded
+  document.title = `${pad(m)}:${pad(s)} — Focus`;
+}
+
+function setState(s) {
+  document.getElementById('state-idle').classList.toggle('hidden',   s !== 'idle');
+  document.getElementById('state-active').classList.toggle('hidden', s !== 'active');
+  document.getElementById('state-break').classList.toggle('hidden',  s !== 'break');
+  document.getElementById('focus-glow').style.opacity =
+    (s === 'active' && S.isRunning) ? '1' : '0';
+}
+
+function renderSessionDots() {
+  const el = document.getElementById('session-dots');
+  let html = '';
+  for (let i = 0; i < SESSIONS_BEFORE_LONG; i++) {
+    html += i < S.sessionsCompleted
+      ? '<div class="w-2 h-2 rounded-full bg-indigo-500"></div>'
+      : '<div class="w-2 h-2 rounded-full bg-white/10"></div>';
+  }
+  el.innerHTML = html;
+}
+
+function updateSidebarHighlight(taskId) {
+  document.querySelectorAll('[id^="task-btn-"]').forEach(btn => {
+    btn.classList.remove('border-indigo-500', 'bg-white/5');
+    btn.classList.add('border-transparent');
+  });
+  if (taskId) {
+    const btn = document.getElementById(`task-btn-${taskId}`);
+    if (btn) {
+      btn.classList.add('border-indigo-500', 'bg-white/5');
+      btn.classList.remove('border-transparent');
+    }
+  }
+}
+
+function showBtn(id) { document.getElementById(id)?.classList.remove('hidden'); }
+function hideBtn(id) { document.getElementById(id)?.classList.add('hidden'); }
+
+// ── Audio ──────────────────────────────────────────────────────────────────────
+function beep(freq = 880, dur = 0.3, vol = 0.25) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + dur);
+  } catch {}
+}
+
+// ── Tick engine ────────────────────────────────────────────────────────────────
+function startTick() {
+  stopTick();
+  tickInterval = setInterval(() => {
+    const secs = computeSecsLeft();
+    renderDisplay();
+    saveState(); // keep endTime fresh in storage on every tick
+    if (secs <= 0) {
+      stopTick();
+      S.isRunning = false;
+      if (S.phase === 'work') onWorkEnd();
+      else onBreakEnd();
+    }
+  }, 500); // 500ms for snappier feel; computeSecsLeft is wall-clock based
+}
+
+function stopTick() {
+  if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
+}
+
+// ── Timer controls ─────────────────────────────────────────────────────────────
+function startTimer() {
+  if (S.isRunning) return;
+  const secsLeft = S.isPaused && S.pausedSecsLeft !== null
+    ? S.pausedSecsLeft
+    : S.totalSecs;
+  S.endTime   = Date.now() + secsLeft * 1000;
+  S.isRunning = true;
+  S.isPaused  = false;
+  S.pausedSecsLeft = null;
+  document.getElementById('focus-glow').style.opacity = '1';
+  showBtn('btn-pause'); hideBtn('btn-start'); hideBtn('btn-resume');
+  saveState();
+  startTick();
+}
+
+function pauseTimer() {
+  if (!S.isRunning) return;
+  S.pausedSecsLeft = computeSecsLeft();
+  S.isRunning = false;
+  S.isPaused  = true;
+  S.endTime   = null;
+  stopTick();
+  document.getElementById('focus-glow').style.opacity = '0';
+  showBtn('btn-resume'); hideBtn('btn-pause');
+  saveState();
+  renderDisplay();
+}
+
+function resumeTimer() { startTimer(); }
+
+function skipPhase() {
+  stopTick();
+  S.isRunning = false; S.isPaused = false; S.endTime = null; S.pausedSecsLeft = null;
+  if (S.phase === 'work') onWorkEnd();
+  else onBreakEnd();
+}
+
+// ── Phase transitions ──────────────────────────────────────────────────────────
+function onWorkEnd() {
+  beep(880, 0.4);
+  setTimeout(() => beep(1100, 0.4), 500);
+
+  S.sessionsCompleted++;
+  renderSessionDots();
+
+  const isLong = S.sessionsCompleted % SESSIONS_BEFORE_LONG === 0;
+  const breakSecs = isLong ? longBreakSecs() : shortBreakSecs();
+
+  document.getElementById('break-badge').textContent =
+    isLong ? '🧘 Long break' : '☕ Short break';
+  document.getElementById('break-phase-label').textContent =
+    isLong ? `${longBreakSecs()/60} min` : `${shortBreakSecs()/60} min`;
+
+  S.phase    = 'break';
+  S.totalSecs = breakSecs;
+  S.endTime  = null; S.pausedSecsLeft = null;
+
+  document.getElementById('break-end-actions').classList.add('hidden');
+  document.getElementById('break-skip-btn').classList.remove('hidden');
+  setState('break');
+  saveState();
+  renderDisplay();
+
+  // Auto-start break
+  startTimer();
+}
+
+function onBreakEnd() {
+  beep(660, 0.3);
+  setTimeout(() => beep(880, 0.3), 350);
+  document.getElementById('break-end-actions').classList.remove('hidden');
+  document.getElementById('break-skip-btn').classList.add('hidden');
+  S.isRunning = false; S.isPaused = false;
+  saveState();
+}
+
+function endBreak() {
+  S.phase    = 'work';
+  S.totalSecs = workSecs();
+  S.endTime  = null; S.pausedSecsLeft = null;
+  S.isRunning = false; S.isPaused = false;
+  showBtn('btn-start'); hideBtn('btn-pause'); hideBtn('btn-resume');
+  saveState();
+  renderDisplay();
+  setState('active');
+}
+
+function continueWithSameTask() { endBreak(); }
+
+function changeTask() {
+  stopTick();
+  S.isRunning = false; S.isPaused = false;
+  S.phase = 'idle'; S.taskId = null;
+  S.endTime = null; S.pausedSecsLeft = null;
+  saveState();
+  updateSidebarHighlight(null);
+  setState('idle');
+  document.title = 'Focus — Zentry';
+}
+
+// ── Select task ────────────────────────────────────────────────────────────────
+function selectTask(id, title, tag, priority) {
+  if ((S.isRunning || S.isPaused) && S.phase === 'work') {
+    if (!confirm('Switch task? This will reset the current timer.')) return;
+    stopTick();
+    S.isRunning = false; S.isPaused = false;
+    S.endTime = null; S.pausedSecsLeft = null;
+  }
+
+  S.taskId    = id;
+  S.taskTitle = title;
+  S.taskTag   = tag;
+  S.taskPri   = priority;
+  S.phase     = 'work';
+  S.totalSecs = workSecs();
+  S.endTime   = null; S.pausedSecsLeft = null;
+  S.isRunning = false; S.isPaused = false;
+
+  document.getElementById('focus-task-title').textContent = title;
+  document.getElementById('focus-task-meta').textContent =
+    `${priorityLabel(priority)} · ${tagLabel(tag)}`;
+
+  const isDeepWork = (priority === 'H' || priority === 'U') && tag === 'W';
+  const badge = document.getElementById('session-badge');
+  if (isDeepWork) {
+    badge.textContent = '🎯 Deep work';
+    badge.className = 'inline-flex items-center gap-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-4 py-1.5 text-xs font-semibold text-indigo-300';
+  } else {
+    badge.textContent = '⚡ Focus session';
+    badge.className = 'inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-4 py-1.5 text-xs font-semibold text-amber-300';
+  }
+
+  showBtn('btn-start'); hideBtn('btn-pause'); hideBtn('btn-resume');
+  saveState();
+  renderDisplay();
+  renderSessionDots();
+  updateSidebarHighlight(id);
+  setState('active');
+}
+
+function priorityLabel(p) { return {U:'Urgent',H:'High',M:'Medium',L:'Low'}[p] || p; }
+function tagLabel(t) { return {W:'Work',P:'Physical',S:'Spiritual',R:'Relationships',B:'Bonus'}[t] || t; }
+
+// ── Mark done ──────────────────────────────────────────────────────────────────
+function markDone() {
+  if (!S.taskId) return;
+  const taskId = S.taskId;
+  fetch(`/pomodoro/complete/${taskId}/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (!data.success) return;
+    const btn = document.getElementById(`task-btn-${taskId}`);
+    if (btn) {
+      btn.style.opacity = '0.35';
+      const label = document.getElementById(`task-title-label-${taskId}`);
+      if (label) label.style.textDecoration = 'line-through';
+    }
+    const nextTask = TASKS.find(t => t.id !== taskId);
+    if (nextTask) {
+      changeTask();
+      setTimeout(() => selectTask(nextTask.id, nextTask.title, nextTask.tag, nextTask.priority), 400);
+    } else {
+      stopTick();
+      clearState();
+      updateSidebarHighlight(null);
+      setState('idle');
+      document.title = 'Focus — Zentry';
+      document.getElementById('idle-headline').textContent = '🎉 All done for today!';
+    }
+  })
+  .catch(() => {});
+}
+
+// ── Restore on page load ───────────────────────────────────────────────────────
+function restoreFromStorage() {
+  if (!loadState()) return false;
+  if (!S.taskId) return false;
+
+  // If timer was running, compute real elapsed time via wall clock
+  if (S.isRunning && S.endTime) {
+    const remaining = Math.round((S.endTime - Date.now()) / 1000);
+    if (remaining <= 0) {
+      // Timer already expired while page was away — handle phase end immediately
+      S.isRunning = false;
+      S.endTime = null;
+      if (S.phase === 'work') {
+        onWorkEnd();
+      } else {
+        onBreakEnd();
+      }
+      return true;
+    }
+    // Remaining > 0: timer still live, just resume the tick
+  }
+
+  // Rebuild UI from restored state
+  document.getElementById('focus-task-title').textContent = S.taskTitle;
+  document.getElementById('focus-task-meta').textContent =
+    `${priorityLabel(S.taskPri)} · ${tagLabel(S.taskTag)}`;
+
+  const isDeepWork = (S.taskPri === 'H' || S.taskPri === 'U') && S.taskTag === 'W';
+  const badge = document.getElementById('session-badge');
+  badge.textContent = isDeepWork ? '🎯 Deep work' : '⚡ Focus session';
+  badge.className = isDeepWork
+    ? 'inline-flex items-center gap-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-4 py-1.5 text-xs font-semibold text-indigo-300'
+    : 'inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-4 py-1.5 text-xs font-semibold text-amber-300';
+
+  updateSidebarHighlight(S.taskId);
+  renderSessionDots();
+  renderDisplay();
+
+  // Apply mode button state
+  setModeButtons(S.mode);
+
+  if (S.phase === 'work') {
+    setState('active');
+    if (S.isRunning) {
+      showBtn('btn-pause'); hideBtn('btn-start'); hideBtn('btn-resume');
+      startTick();
+    } else if (S.isPaused) {
+      showBtn('btn-resume'); hideBtn('btn-start'); hideBtn('btn-pause');
+    } else {
+      showBtn('btn-start'); hideBtn('btn-pause'); hideBtn('btn-resume');
+    }
+  } else if (S.phase === 'break') {
+    setState('break');
+    if (S.isRunning) {
+      startTick();
+      document.getElementById('break-end-actions').classList.add('hidden');
+      document.getElementById('break-skip-btn').classList.remove('hidden');
+    } else {
+      document.getElementById('break-end-actions').classList.remove('hidden');
+      document.getElementById('break-skip-btn').classList.add('hidden');
+    }
+  }
+
+  return true;
+}
+
+function setModeButtons(m) {
+  ['25','50'].forEach(k => {
+    const btn = document.getElementById(`mode-btn-${k}`);
+    if (!btn) return;
+    btn.className = k === m
+      ? 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-gray-900 transition-colors'
+      : 'px-3 py-1 rounded-md text-xs font-semibold text-gray-500 hover:text-gray-300 transition-colors';
+  });
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const restored = restoreFromStorage();
+  if (!restored) {
+    setState('idle');
+    setModeButtons(S.mode);
+  }
+});
+</script>
+{% endblock %}

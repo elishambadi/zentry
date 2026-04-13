@@ -1109,6 +1109,8 @@ def dashboard(request):
     today = date.today()
     preferences = get_or_create_user_preferences(request.user)
 
+    if preferences.default_page == 'pomodoro':
+        return redirect('pomodoro')
     if preferences.default_page == 'calendar':
         return redirect('calendar')
     if preferences.default_page == 'ideas':
@@ -1557,6 +1559,64 @@ def zenai_calendar_tasks(request):
     })
 
 
+@login_required
+def pomodoro_view(request):
+    """Pomodoro focus page — serves today's tasks ranked for deep work."""
+    today = date.today()
+    ensure_recurring_tasks_for_date(request.user, today)
+
+    # Priority order: Urgent > High > Medium > Low
+    # Tag order: Work first, then Physical/Spiritual/Relationships/Bonus
+    PRIORITY_ORDER = {'U': 0, 'H': 1, 'M': 2, 'L': 3}
+    TAG_ORDER = {'W': 0, 'P': 1, 'S': 2, 'R': 3, 'B': 4}
+
+    tasks_qs = Task.objects.filter(
+        user=request.user,
+        date=today,
+        is_recurring_template=False,
+        completed=False,
+    )
+
+    tasks = sorted(
+        tasks_qs,
+        key=lambda t: (PRIORITY_ORDER.get(t.priority, 9), TAG_ORDER.get(t.tag, 9)),
+    )
+
+    # Detect morning: before noon local time (server time is a proxy; good enough)
+    hour = datetime.now().hour
+    is_morning = hour < 12
+
+    tasks_json = [
+        {
+            'id': t.id,
+            'title': t.title,
+            'tag': t.tag,
+            'tag_display': t.get_tag_display(),
+            'priority': t.priority,
+            'priority_display': t.get_priority_display(),
+            'is_rest': t.is_rest,
+        }
+        for t in tasks
+    ]
+
+    return render(request, 'core/pomodoro.html', {
+        'tasks': tasks,
+        'tasks_json': json.dumps(tasks_json),
+        'today': today,
+        'is_morning': is_morning,
+    })
+
+
+@login_required
+@require_POST
+def pomodoro_complete_task(request, task_id):
+    """Toggle a task complete from the pomodoro page."""
+    task = get_object_or_404(Task, id=task_id, user=request.user)
+    task.completed = not task.completed
+    task.save(update_fields=['completed'])
+    return JsonResponse({'success': True, 'completed': task.completed})
+
+
 def pwa_manifest(request):
     return render(request, 'manifest.json', content_type='application/manifest+json')
 
@@ -1725,18 +1785,43 @@ def calendar_view(request):
     today = date.today()
     year = int(request.GET.get('year', today.year))
     month = int(request.GET.get('month', today.month))
-    
+    view_mode = request.GET.get('view', 'month')  # 'month' | 'week'
+
+    # ── Week-view helpers ──
+    week_offset = int(request.GET.get('week', 0))
+    # "Sunday planning" — week starts Monday; offset in weeks from current
+    start_of_this_week = today - timedelta(days=today.weekday())
+    week_start = start_of_this_week + timedelta(weeks=week_offset)
+    week_end   = week_start + timedelta(days=6)
+
     # Create calendar
     cal = calendar.monthcalendar(year, month)
     month_name = calendar.month_name[month]
-    
-    # Get tasks and journals for the month
+
+    # ── Month-view data ──
     start_date = date(year, month, 1)
     if month == 12:
         end_date = date(year + 1, 1, 1) - timedelta(days=1)
     else:
         end_date = date(year, month + 1, 1) - timedelta(days=1)
-    
+
+    # ── For week view we need 7 days of full tasks (not just counts) ──
+    week_days_data = []
+    if view_mode == 'week':
+        for i in range(7):
+            d = week_start + timedelta(days=i)
+            ensure_recurring_tasks_for_date(request.user, d)
+            day_tasks = Task.objects.filter(
+                user=request.user,
+                date=d,
+                is_recurring_template=False,
+            ).order_by('completed', 'created_at')
+            week_days_data.append({
+                'date': d,
+                'is_today': d == today,
+                'tasks': day_tasks,
+            })
+
     tasks = Task.objects.filter(
         user=request.user,
         date__range=[start_date, end_date],
@@ -1762,7 +1847,7 @@ def calendar_view(request):
         user=request.user,
         date__range=[start_date, end_date]
     ).values_list('date', flat=True)
-    
+
     # Create lookup dictionaries with ISO date keys for safe template lookup
     task_data = {item['date'].isoformat(): item for item in tasks}
     task_lines = {}
@@ -1840,8 +1925,16 @@ def calendar_view(request):
         'prev_year': prev_year,
         'next_month': next_month,
         'next_year': next_year,
+        # Week view
+        'view_mode': view_mode,
+        'week_offset': week_offset,
+        'week_start': week_start,
+        'week_end': week_end,
+        'week_days_data': week_days_data,
+        'prev_week_offset': week_offset - 1,
+        'next_week_offset': week_offset + 1,
     }
-    
+
     return render(request, 'core/calendar.html', context)
 
 @login_required
