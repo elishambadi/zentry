@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Print — {{ notebook.title }}</title>
+  <title>{{ notebook.title }}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
@@ -15,21 +15,146 @@
       --accent: #4f46e5;
     }
 
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+
     body {
       background: linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%);
       color: var(--ink);
       font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     }
 
-    .paper {
+    /* Page-based layout for print */
+    .print-page {
+      width: 8.5in;
+      height: 11in;
+      margin: 0.5in auto;
+      padding: 0;
       background: var(--paper);
-      border: 1px solid var(--line);
       box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+      page-break-after: always;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .print-page-content {
+      flex: 1;
+      padding: 0.75in;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .print-page-footer {
+      height: 0.5in;
+      padding: 0.25in 0.75in;
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.7rem;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .print-page-footer-text {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+    }
+
+    .page-number {
+      font-weight: 500;
+    }
+
+    /* Title Page Styling */
+    .title-page {
+      position: relative;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .title-page-content {
+      position: relative;
+      z-index: 10;
+      max-width: 90%;
+    }
+
+    .title-page-svg {
+      position: absolute;
+      opacity: 0.4;
+    }
+
+    .title-page-svg-top {
+      top: -50px;
+      right: -30px;
+    }
+
+    .title-page-svg-bottom {
+      bottom: -50px;
+      left: -30px;
+    }
+
+    .title-page-svg-blob {
+      top: 20%;
+      right: 5%;
+      opacity: 0.15;
+    }
+
+    .title-page h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 1rem 0;
+      color: var(--ink);
+    }
+
+    .title-page-subtitle {
+      font-size: 0.95rem;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin: 0;
+      margin-bottom: 3rem;
+    }
+
+    .title-page-meta {
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--line);
+    }
+
+    .title-page-meta-item {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0.5rem 0;
+    }
+
+    .title-page-meta-label {
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    /* Content Pages */
+    .content-page {
+      padding: 0.75in !important;
     }
 
     .published-body {
-      line-height: 1.9;
-      font-size: 1.02rem;
+      line-height: 1.8;
+      font-size: 0.95rem;
+      color: var(--ink);
     }
 
     .published-body a {
@@ -39,100 +164,260 @@
       word-break: break-all;
     }
 
-    .sidebar-scroll {
-      max-height: calc(100vh - 12rem);
+    .note-block {
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .note-block:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .note-block-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--ink);
+      margin: 0 0 0.25rem 0;
+    }
+
+    .note-block-meta {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .note-block-image {
+      margin: 1rem 0;
+      border-radius: 0.5rem;
+      border: 1px solid var(--line);
+      max-height: 4rem;
+      object-fit: cover;
+      width: 100%;
+    }
+
+    .link-preview {
+      margin: 1rem 0;
+      padding: 0.75rem;
+      border: 1px solid var(--line);
+      border-radius: 0.5rem;
+      background: #f9fafb;
+      font-size: 0.8rem;
+    }
+
+    .link-preview-domain {
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 0.25rem;
+    }
+
+    .link-preview-url {
+      color: var(--muted);
+      word-break: break-all;
+    }
+
+    /* No-print elements */
+    .no-print {
+      display: none;
+    }
+
+    /* Screen view (non-print) */
+    @media screen {
+      body {
+        padding: 2rem 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+      }
+
+      .print-page {
+        margin: 1rem auto;
+        border-radius: 0.5rem;
+      }
+
+      .print-controls {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        align-items: center;
+      }
+
+      .no-print {
+        display: block;
+      }
+    }
+
+    /* Print styles */
+    @media print {
+      body {
+        background: #fff !important;
+        padding: 0 !important;
+      }
+
+      .print-page {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 8.5in;
+        height: 11in;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        page-break-after: always;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+
+      .print-page-footer {
+        border-top: 1px solid var(--line);
+      }
+
+      .published-body img {
+        max-height: 3in;
+      }
+    }
+
+    /* Scrolling for content preview */
+    .page-scroll-container {
+      flex: 1;
       overflow-y: auto;
     }
 
-    @media print {
-      .no-print { display: none !important; }
-      body { background: #fff !important; }
-      .paper { box-shadow: none !important; border: none !important; }
-      .print-page-break { page-break-after: always; }
-      .sidebar-scroll { max-height: none !important; overflow: visible !important; }
+    .page-scroll-container::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .page-scroll-container::-webkit-scrollbar-track {
+      background: #f0f0f0;
+      border-radius: 3px;
+    }
+
+    .page-scroll-container::-webkit-scrollbar-thumb {
+      background: #ccc;
+      border-radius: 3px;
+    }
+
+    .page-scroll-container::-webkit-scrollbar-thumb:hover {
+      background: #999;
     }
   </style>
 </head>
 <body>
-  <div class="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-10">
-    <header class="no-print flex items-center justify-between mb-6 md:mb-8">
-      <div>
-        <p class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Published notebook view</p>
-        <h1 class="text-2xl md:text-3xl font-semibold text-gray-900">{{ notebook.title }}</h1>
-      </div>
-      <div class="flex items-center gap-2">
-        <a href="{% url 'notebooks' %}?notebook={{ notebook.id }}" class="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50">Back</a>
-        <button onclick="window.print()" class="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-gray-800">Print</button>
-      </div>
-    </header>
-
-    {% for page in pages %}
-      <section class="paper rounded-2xl p-5 md:p-8 mb-8 {% if not forloop.last %}print-page-break{% endif %}">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <main class="lg:col-span-8">
-            <h2 class="text-2xl font-semibold text-gray-900">{{ page.display_title }}</h2>
-            <p class="text-xs uppercase tracking-[0.16em] text-gray-500 mt-1 mb-6">{{ page.page_date|date:'l, j F Y' }}</p>
-
-            <div class="space-y-8">
-              {% for block in page.blocks.all %}
-                <article class="pb-6 border-b border-gray-200 last:border-b-0 last:pb-0">
-                  <h3 class="text-lg font-semibold text-gray-900">{% if block.emoji %}{{ block.emoji }} {% endif %}{{ block.title|default:'Untitled thought' }}</h3>
-                  <p class="text-xs text-gray-400 mt-1">{{ block.created_at|date:'j M Y · H:i' }}</p>
-
-                  {% if block.body %}
-                    <div class="published-body mt-4 text-gray-800">{{ block.body|safe }}</div>
-                  {% endif %}
-
-                  {% if block.image_url %}
-                    <img src="{{ block.image_url }}" alt="Notebook image" class="mt-4 rounded-xl border border-gray-200 max-h-96 object-cover w-full">
-                  {% endif %}
-
-                  {% with preview=block_previews|lookup:block.id %}
-                    {% if preview %}
-                      <div class="mt-4 border border-gray-200 rounded-xl p-3 bg-gray-50">
-                        <div class="text-sm font-semibold text-gray-700">{{ preview.domain }}</div>
-                        <div class="text-xs text-gray-500 mt-0.5">{{ preview.compact_url }}</div>
-                      </div>
-                    {% endif %}
-                  {% endwith %}
-                </article>
-              {% empty %}
-                <p class="text-sm text-gray-500">No entries on this page.</p>
-              {% endfor %}
-            </div>
-          </main>
-
-          <aside class="lg:col-span-4 lg:pl-2">
-            <div class="border border-gray-200 rounded-xl bg-white p-4 sticky top-6">
-              <p class="text-xs uppercase tracking-[0.16em] text-gray-500 mb-3">Comments sidebar</p>
-              <div class="space-y-4 sidebar-scroll pr-1">
-                {% for block in page.blocks.all %}
-                  <section class="border border-gray-200 rounded-lg p-3 bg-gray-50/70">
-                    <h4 class="text-xs font-semibold text-gray-700">{% if block.emoji %}{{ block.emoji }} {% endif %}{{ block.title|default:'Untitled thought' }}</h4>
-                    <div class="mt-2 space-y-2">
-                      {% for comment in block.comments.all %}
-                        <div class="bg-white border border-gray-200 rounded-md p-2">
-                          <div class="text-xs font-medium text-gray-700">{{ comment.user.first_name|default:comment.user.username }}</div>
-                          <div class="text-xs text-gray-600 mt-0.5 leading-relaxed">{{ comment.content|linebreaksbr }}</div>
-                        </div>
-                      {% empty %}
-                        <p class="text-xs text-gray-400">No comments</p>
-                      {% endfor %}
-                    </div>
-                  </section>
-                {% empty %}
-                  <p class="text-xs text-gray-400">No notes yet.</p>
-                {% endfor %}
-              </div>
-            </div>
-          </aside>
-        </div>
-      </section>
-    {% empty %}
-      <div class="paper rounded-2xl p-10 text-center text-gray-500">
-        This notebook has no pages yet.
-      </div>
-    {% endfor %}
+  <!-- Screen Controls (No Print) -->
+  <div class="no-print print-controls max-w-2xl">
+    <div>
+      <p class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">{{ notebook.title }}</p>
+      <h1 class="text-2xl md:text-3xl font-semibold text-gray-900">Print Preview</h1>
+    </div>
+    <div class="flex items-center gap-2 ml-auto">
+      <a href="{% url 'notebooks' %}?notebook={{ notebook.id }}" class="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50">
+        Back to Editor
+      </a>
+      <button onclick="window.print()" class="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-gray-800 font-medium">
+        Print / Save PDF
+      </button>
+    </div>
   </div>
+
+  <!-- Title Page -->
+  <div class="print-page title-page">
+    <!-- Background SVG Decorations -->
+    <div class="title-page-svg title-page-svg-top">
+      {{ title_page_svg.corner_top|safe }}
+    </div>
+    <div class="title-page-svg title-page-svg-blob">
+      {{ title_page_svg.blob|safe }}
+    </div>
+    <div class="title-page-svg title-page-svg-bottom">
+      {{ title_page_svg.corner_bottom|safe }}
+    </div>
+
+    <!-- Content -->
+    <div class="title-page-content">
+      <h1>{{ notebook.title }}</h1>
+      <p class="title-page-subtitle">Personal Notebook</p>
+
+      <div class="title-page-meta">
+        <div class="title-page-meta-item">
+          <span class="title-page-meta-label">Created</span><br>
+          {{ notebook.created_at|date:'F j, Y' }}
+        </div>
+        <div class="title-page-meta-item">
+          <span class="title-page-meta-label">Published</span><br>
+          {{ "now"|date:'F j, Y' }}
+        </div>
+      </div>
+    </div>
+
+    <div class="print-page-footer">
+      <div class="print-page-footer-text">
+        <span>{{ notebook.title }}</span>
+      </div>
+      <span class="page-number">— 1 —</span>
+    </div>
+  </div>
+
+  <!-- Content Pages -->
+  {% for page in pages %}
+    <div class="print-page content-page">
+      <div class="print-page-content">
+        <div class="page-scroll-container">
+          <h2 class="text-2xl font-semibold text-gray-900 mb-1">{{ page.display_title }}</h2>
+          <p class="text-xs uppercase tracking-[0.16em] text-gray-500 mb-6">{{ page.page_date|date:'l, j F Y' }}</p>
+
+          <div class="space-y-0">
+            {% for block in page.blocks.all %}
+              <article class="note-block">
+                <h3 class="note-block-title">
+                  {% if block.emoji %}{{ block.emoji }} {% endif %}{{ block.title|default:'Untitled thought' }}
+                </h3>
+                <p class="note-block-meta">{{ block.created_at|date:'j M Y · H:i' }}</p>
+
+                {% if block.body %}
+                  <div class="published-body">{{ block.body|safe }}</div>
+                {% endif %}
+
+                {% if block.image_url %}
+                  <img src="{{ block.image_url }}" alt="Notebook image" class="note-block-image">
+                {% endif %}
+
+                {% with preview=block_previews|lookup:block.id %}
+                  {% if preview %}
+                    <div class="link-preview">
+                      <div class="link-preview-domain">{{ preview.domain }}</div>
+                      <div class="link-preview-url">{{ preview.compact_url }}</div>
+                    </div>
+                  {% endif %}
+                {% endwith %}
+              </article>
+            {% empty %}
+              <p class="text-sm text-gray-500">No entries on this page.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="print-page-footer">
+        <div class="print-page-footer-text">
+          <span>{{ notebook.title }}</span>
+          <span>{{ page.display_title }}</span>
+        </div>
+        <span class="page-number">— {{ forloop.counter|add:1 }} —</span>
+      </div>
+    </div>
+  {% empty %}
+    <div class="print-page content-page">
+      <div class="print-page-content flex items-center justify-center">
+        <p class="text-center text-gray-500">This notebook has no pages yet.</p>
+      </div>
+      <div class="print-page-footer">
+        <span>{{ notebook.title }}</span>
+        <span class="page-number">— 2 —</span>
+      </div>
+    </div>
+  {% endfor %}
 </body>
 </html>

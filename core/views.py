@@ -16,6 +16,7 @@ from decouple import config
 import json
 import calendar
 import logging
+import random
 import time
 import httpx
 from urllib.parse import urlparse
@@ -43,6 +44,7 @@ from .models import (
 from .forms import (TaskForm, TaskEditForm, JournalForm, SubTaskForm, NoteForm, 
                     LinkForm, IdeaForm, GoalForm, DailyMoodForm, UserPreferenceForm,
                     NotebookForm, NotebookPageForm, NotebookBlockForm, NotebookCommentForm)
+from .svg_decorations import SVGDecorator
 
 try:
     from anthropic import Anthropic
@@ -2734,9 +2736,19 @@ def notebook_print(request, notebook_id):
             if block.link_url:
                 block_previews[block.id] = build_simple_link_preview(block.link_url)
 
+    # Generate decorative SVG elements for title page
+    decorator = SVGDecorator()
+    title_page_svg = {
+        'geometric': decorator.geometric_grid(800, 400, pattern=random.choice(['circles', 'dots', 'waves'])),
+        'corner_top': decorator.corner_accent(150, 150, 'top-right'),
+        'corner_bottom': decorator.corner_accent(150, 150, 'bottom-left'),
+        'blob': decorator.abstract_blob(300, 300),
+    }
+
     return render(request, 'core/notebook_print.html', {
         'notebook': notebook,
         'pages': pages,
         'block_previews': block_previews,
+        'title_page_svg': title_page_svg,
     })
 
