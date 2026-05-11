@@ -45,6 +45,13 @@ urlpatterns = [
     path('pomodoro/', views.pomodoro_view, name='pomodoro'),
     path('pomodoro/complete/<int:task_id>/', views.pomodoro_complete_task, name='pomodoro_complete_task'),
 
+    # Notebooks
+    path('notebooks/', views.notebooks_workdesk, name='notebooks'),
+    path('notebooks/<int:notebook_id>/page/create/', views.notebook_page_create, name='notebook_page_create'),
+    path('notebooks/page/<int:page_id>/block/create/', views.notebook_block_create, name='notebook_block_create'),
+    path('notebooks/block/<int:block_id>/comment/', views.notebook_comment_create, name='notebook_comment_create'),
+    path('notebooks/<int:notebook_id>/print/', views.notebook_print, name='notebook_print'),
+
     # Ideas board
     path('ideas/', views.ideas_board, name='ideas_board'),
     path('idea/<int:idea_id>/breakdown/', views.idea_ai_breakdown, name='idea_ai_breakdown'),

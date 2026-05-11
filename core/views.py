@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.db.models import Q, Count, Prefetch
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from django.urls import reverse
 from datetime import date, datetime, timedelta
 from django.utils import timezone
 from decouple import config
@@ -17,6 +18,7 @@ import calendar
 import logging
 import time
 import httpx
+from urllib.parse import urlparse
 
 logger = logging.getLogger('core.zenai')
 
@@ -33,9 +35,14 @@ from .models import (
     UserPreference,
     ZenChatSession,
     ZenChatMessage,
+    Notebook,
+    NotebookPage,
+    NotebookBlock,
+    NotebookComment,
 )
 from .forms import (TaskForm, TaskEditForm, JournalForm, SubTaskForm, NoteForm, 
-                    LinkForm, IdeaForm, GoalForm, DailyMoodForm, UserPreferenceForm)
+                    LinkForm, IdeaForm, GoalForm, DailyMoodForm, UserPreferenceForm,
+                    NotebookForm, NotebookPageForm, NotebookBlockForm, NotebookCommentForm)
 
 try:
     from anthropic import Anthropic
@@ -46,6 +53,37 @@ except ImportError:
 def get_or_create_user_preferences(user):
     preferences, _ = UserPreference.objects.get_or_create(user=user)
     return preferences
+
+
+def get_or_create_primary_notebook(user):
+    notebook, _ = Notebook.objects.get_or_create(
+        user=user,
+        title='Notebooks',
+        defaults={'description': 'Your calm conversational workdesk.'},
+    )
+    return notebook
+
+
+def build_simple_link_preview(url_value):
+    if not url_value:
+        return None
+
+    try:
+        parsed = urlparse(url_value)
+        domain = parsed.netloc or ''
+        if not domain:
+            return None
+
+        path = parsed.path if parsed.path and parsed.path != '/' else ''
+        compact_url = f"{domain}{path}"[:90]
+        return {
+            'domain': domain,
+            'compact_url': compact_url,
+            'favicon': f"https://www.google.com/s2/favicons?sz=64&domain={domain}",
+        }
+    except Exception:
+        return None
+
 
 
 def ensure_goal_celebration_task(goal):
@@ -1113,6 +1151,8 @@ def dashboard(request):
         return redirect('pomodoro')
     if preferences.default_page == 'calendar':
         return redirect('calendar')
+    if preferences.default_page == 'notebooks':
+        return redirect('notebooks')
     if preferences.default_page == 'ideas':
         return redirect('ideas_board')
     if preferences.default_page == 'goals':
@@ -2540,4 +2580,163 @@ def detach_goal_from_task(request, task_id, goal_id):
     TaskGoal.objects.filter(task=task, goal=goal).delete()
     
     return JsonResponse({'success': True})
+
+
+@login_required
+def notebooks_workdesk(request):
+    notebooks = Notebook.objects.filter(user=request.user).order_by('-updated_at', '-created_at')
+    if not notebooks.exists():
+        primary = get_or_create_primary_notebook(request.user)
+        notebooks = Notebook.objects.filter(user=request.user).order_by('-updated_at', '-created_at')
+    else:
+        primary = notebooks.first()
+
+    selected_notebook_id = request.GET.get('notebook')
+    if selected_notebook_id and selected_notebook_id.isdigit():
+        selected_notebook = get_object_or_404(Notebook, id=int(selected_notebook_id), user=request.user)
+    else:
+        selected_notebook = primary
+
+    requested_page_id = request.GET.get('page')
+    selected_page = None
+    if requested_page_id and requested_page_id.isdigit():
+        selected_page = NotebookPage.objects.filter(
+            id=int(requested_page_id),
+            notebook=selected_notebook,
+        ).first()
+
+    today = date.today()
+    if not selected_page:
+        selected_page = NotebookPage.objects.filter(notebook=selected_notebook, page_date=today).order_by('order', 'created_at').first()
+
+    if not selected_page:
+        selected_page = NotebookPage.objects.filter(notebook=selected_notebook).order_by('-page_date', 'order', 'created_at').first()
+
+    if not selected_page:
+        selected_page = NotebookPage.objects.create(
+            notebook=selected_notebook,
+            page_date=today,
+            title='Today',
+            order=0,
+        )
+
+    pages = list(NotebookPage.objects.filter(notebook=selected_notebook).order_by('-page_date', 'order', 'created_at'))
+    blocks = list(
+        NotebookBlock.objects.filter(page=selected_page)
+        .prefetch_related('comments__user')
+        .order_by('order', 'created_at')
+    )
+
+    if request.method == 'POST' and request.POST.get('intent') == 'create_notebook':
+        notebook_form = NotebookForm(request.POST)
+        if notebook_form.is_valid():
+            created = notebook_form.save(commit=False)
+            created.user = request.user
+            created.save()
+            NotebookPage.objects.create(
+                notebook=created,
+                page_date=today,
+                title='Today',
+                order=0,
+            )
+            messages.success(request, 'Notebook created.')
+            return redirect(f"{reverse('notebooks')}?notebook={created.id}")
+    else:
+        notebook_form = NotebookForm()
+
+    block_previews = {block.id: build_simple_link_preview(block.link_url) for block in blocks if block.link_url}
+
+    context = {
+        'notebooks': notebooks,
+        'selected_notebook': selected_notebook,
+        'selected_page': selected_page,
+        'pages': pages,
+        'blocks': blocks,
+        'today': today,
+        'notebook_form': notebook_form,
+        'page_form': NotebookPageForm(initial={'page_date': today}),
+        'block_form': NotebookBlockForm(),
+        'comment_form': NotebookCommentForm(),
+        'block_previews': block_previews,
+    }
+    return render(request, 'core/notebooks.html', context)
+
+
+@login_required
+@require_POST
+def notebook_page_create(request, notebook_id):
+    notebook = get_object_or_404(Notebook, id=notebook_id, user=request.user)
+    form = NotebookPageForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'Unable to create page. Please check the form fields.')
+        return redirect(f"{reverse('notebooks')}?notebook={notebook.id}")
+
+    page = form.save(commit=False)
+    page.notebook = notebook
+    last_page = NotebookPage.objects.filter(notebook=notebook).order_by('-order').first()
+    page.order = (last_page.order + 1) if last_page else 0
+    page.save()
+
+    messages.success(request, 'New page created.')
+    return redirect(f"{reverse('notebooks')}?notebook={notebook.id}&page={page.id}")
+
+
+@login_required
+@require_POST
+def notebook_block_create(request, page_id):
+    page = get_object_or_404(NotebookPage, id=page_id, notebook__user=request.user)
+    form = NotebookBlockForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'Unable to add note. Please check required fields.')
+        return redirect(f"{reverse('notebooks')}?notebook={page.notebook_id}&page={page.id}")
+
+    block = form.save(commit=False)
+    block.page = page
+    latest_block = NotebookBlock.objects.filter(page=page).order_by('-order').first()
+    block.order = (latest_block.order + 1) if latest_block else 0
+    block.save()
+
+    page.notebook.updated_at = timezone.now()
+    page.notebook.save(update_fields=['updated_at'])
+    messages.success(request, 'Thought captured.')
+    return redirect(f"{reverse('notebooks')}?notebook={page.notebook_id}&page={page.id}")
+
+
+@login_required
+@require_POST
+def notebook_comment_create(request, block_id):
+    block = get_object_or_404(NotebookBlock, id=block_id, page__notebook__user=request.user)
+    form = NotebookCommentForm(request.POST)
+    if form.is_valid():
+        comment = form.save(commit=False)
+        comment.block = block
+        comment.user = request.user
+        comment.save()
+        messages.success(request, 'Comment added.')
+    else:
+        messages.error(request, 'Comment is empty.')
+
+    return redirect(f"{reverse('notebooks')}?notebook={block.page.notebook_id}&page={block.page_id}#block-{block.id}")
+
+
+@login_required
+def notebook_print(request, notebook_id):
+    notebook = get_object_or_404(Notebook, id=notebook_id, user=request.user)
+    pages = (
+        NotebookPage.objects.filter(notebook=notebook)
+        .prefetch_related('blocks__comments__user')
+        .order_by('page_date', 'order', 'created_at')
+    )
+
+    block_previews = {}
+    for page in pages:
+        for block in page.blocks.all():
+            if block.link_url:
+                block_previews[block.id] = build_simple_link_preview(block.link_url)
+
+    return render(request, 'core/notebook_print.html', {
+        'notebook': notebook,
+        'pages': pages,
+        'block_previews': block_previews,
+    })
 

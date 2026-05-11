@@ -225,6 +225,7 @@ class UserPreference(models.Model):
         ('pomodoro', 'Pomodoro Focus'),
         ('daily', 'Daily View'),
         ('calendar', 'Calendar'),
+        ('notebooks', 'Notebooks'),
         ('ideas', 'Ideas Board'),
         ('goals', 'Goals'),
         ('weekly', 'Weekly Review'),
@@ -281,3 +282,67 @@ class ZenChatMessage(models.Model):
 
     def __str__(self):
         return f"{self.session_id} - {self.role}"
+
+
+class Notebook(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notebooks')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.title}"
+
+
+class NotebookPage(models.Model):
+    notebook = models.ForeignKey(Notebook, on_delete=models.CASCADE, related_name='pages')
+    page_date = models.DateField(default=date.today)
+    title = models.CharField(max_length=200, blank=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-page_date', 'order', 'created_at']
+
+    def __str__(self):
+        return f"{self.notebook.title} - {self.display_title}"
+
+    @property
+    def display_title(self):
+        return self.title.strip() or f"{self.page_date.strftime('%d %b %Y')}"
+
+
+class NotebookBlock(models.Model):
+    page = models.ForeignKey(NotebookPage, on_delete=models.CASCADE, related_name='blocks')
+    title = models.CharField(max_length=200, blank=True)
+    body = models.TextField(blank=True)
+    emoji = models.CharField(max_length=20, blank=True)
+    image_url = models.URLField(max_length=500, blank=True)
+    link_url = models.URLField(max_length=500, blank=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+
+    def __str__(self):
+        return f"Block {self.id} on {self.page.display_title}"
+
+
+class NotebookComment(models.Model):
+    block = models.ForeignKey(NotebookBlock, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notebook_comments')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Comment by {self.user.username} on block {self.block_id}"

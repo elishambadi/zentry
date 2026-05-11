@@ -85,6 +85,7 @@
                 <a href="{% url 'dashboard' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Dashboard">🏠</a>
                 <a href="{% url 'pomodoro' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Pomodoro">🍅</a>
                 <a href="{% url 'calendar' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Calendar">🗓️</a>
+                <a href="{% url 'notebooks' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Notebooks">📓</a>
                 <a href="{% url 'ideas_board' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Ideas">💡</a>
                 <a href="{% url 'goals_list' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Goals">🎯</a>
                 <a href="{% url 'weekly_review' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Weekly Review">📅</a>
@@ -103,36 +104,41 @@
         </aside>
 
         {# ── Mobile bottom navbar ─────────────────────────────────────────── #}
-        <nav class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 flex items-stretch"
+          <nav class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 flex items-stretch overflow-x-auto"
              style="padding-bottom: env(safe-area-inset-bottom);"
              id="mobile-nav">
             <a href="{% url 'dashboard' %}"
-               class="mobile-nav-link flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
+                    class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
                 <span class="text-xl leading-none">🏠</span>
                 <span class="text-[10px] font-medium">Home</span>
             </a>
             <a href="{% url 'pomodoro' %}"
-               class="mobile-nav-link flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
+                    class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
                 <span class="text-xl leading-none">🍅</span>
                 <span class="text-[10px] font-medium">Focus</span>
             </a>
             <a href="{% url 'calendar' %}"
-               class="mobile-nav-link flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
+                    class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
                 <span class="text-xl leading-none">🗓️</span>
                 <span class="text-[10px] font-medium">Calendar</span>
             </a>
+                <a href="{% url 'notebooks' %}"
+                    class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
+                     <span class="text-xl leading-none">📓</span>
+                     <span class="text-[10px] font-medium">Notebook</span>
+                </a>
             <a href="{% url 'ideas_board' %}"
-               class="mobile-nav-link flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
+                    class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
                 <span class="text-xl leading-none">💡</span>
                 <span class="text-[10px] font-medium">Ideas</span>
             </a>
             <a href="{% url 'goals_list' %}"
-               class="mobile-nav-link flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
+                    class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
                 <span class="text-xl leading-none">🎯</span>
                 <span class="text-[10px] font-medium">Goals</span>
             </a>
             <button @click="toggleZenAI()"
-               class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
+                    class="min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
                 <span class="text-xl leading-none">✨</span>
                 <span class="text-[10px] font-medium">ZenAI</span>
             </button>

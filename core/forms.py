@@ -1,6 +1,20 @@
 # core/forms.py
 from django import forms
-from .models import Task, JournalEntry, SubTask, Note, Link, Idea, Goal, DailyMood, UserPreference
+from .models import (
+    Task,
+    JournalEntry,
+    SubTask,
+    Note,
+    Link,
+    Idea,
+    Goal,
+    DailyMood,
+    UserPreference,
+    Notebook,
+    NotebookPage,
+    NotebookBlock,
+    NotebookComment,
+)
 
 
 WEEKDAY_CHOICES = [
@@ -234,5 +248,80 @@ class UserPreferenceForm(forms.ModelForm):
                 'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
                 'placeholder': 'Favorite authors, thinkers, or references...',
                 'rows': 3
+            }),
+        }
+
+
+class NotebookForm(forms.ModelForm):
+    class Meta:
+        model = Notebook
+        fields = ['title', 'description']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'placeholder': 'Notebook title...'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'placeholder': 'What is this notebook for?',
+                'rows': 2,
+            }),
+        }
+
+
+class NotebookPageForm(forms.ModelForm):
+    class Meta:
+        model = NotebookPage
+        fields = ['title', 'page_date']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'placeholder': 'New page title (optional)',
+            }),
+            'page_date': forms.DateInput(attrs={
+                'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'type': 'date',
+            }),
+        }
+
+
+class NotebookBlockForm(forms.ModelForm):
+    class Meta:
+        model = NotebookBlock
+        fields = ['title', 'body', 'emoji', 'image_url', 'link_url']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'placeholder': 'Thinking title...'
+            }),
+            'body': forms.Textarea(attrs={
+                'class': 'w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'placeholder': 'Write your thinking here...\nUse emojis, links, and image URLs freely.',
+                'rows': 6,
+            }),
+            'emoji': forms.TextInput(attrs={
+                'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'placeholder': '🙂'
+            }),
+            'image_url': forms.URLInput(attrs={
+                'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'placeholder': 'https://... image URL (optional)'
+            }),
+            'link_url': forms.URLInput(attrs={
+                'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'placeholder': 'https://... link for preview (optional)'
+            }),
+        }
+
+
+class NotebookCommentForm(forms.ModelForm):
+    class Meta:
+        model = NotebookComment
+        fields = ['content']
+        widgets = {
+            'content': forms.Textarea(attrs={
+                'class': 'w-full px-2.5 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-xs',
+                'placeholder': 'Comment on this thought...',
+                'rows': 2,
             }),
         }
