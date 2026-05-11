@@ -90,6 +90,27 @@
   #notebook-app.fullscreen-mode .ql-editor {
     min-height: 100vh;
   }
+
+  #write-modal-backdrop {
+    backdrop-filter: blur(10px);
+    background: rgba(17, 24, 39, 0.45);
+  }
+
+  .comment-hidden-shell {
+    position: relative;
+    filter: blur(2.5px);
+    opacity: 0.45;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .comment-hidden-shell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(255,255,255,0.55), rgba(243,244,246,0.85));
+    border-radius: 0.5rem;
+  }
 </style>
 {% endblock %}
 
@@ -161,11 +182,18 @@
           </details>
           {% endif %}
 
-          <form method="post" action="{% url 'notebook_comment_create' block.id %}" class="mt-4 flex gap-2">
-            {% csrf_token %}
-            <input type="text" name="content" placeholder="Add a comment..." class="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" required>
-            <button type="submit" title="Post comment" class="h-9 w-9 text-sm font-semibold bg-gray-900 text-white rounded-lg hover:bg-gray-800">💬</button>
-          </form>
+          <div class="mt-4">
+            <div class="comment-hidden-shell rounded-lg border border-gray-200 p-2 bg-white">
+              <div class="h-9 rounded-md bg-gray-100"></div>
+            </div>
+            <button type="button" title="Reveal comment box" class="mt-2 text-xs text-indigo-600 hover:text-indigo-700 reveal-comment-btn">Add comment</button>
+
+            <form method="post" action="{% url 'notebook_comment_create' block.id %}" class="mt-3 flex gap-2 hidden comment-form">
+              {% csrf_token %}
+              <input type="text" name="content" placeholder="Add a comment..." class="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" required>
+              <button type="submit" title="Post comment" class="h-9 w-9 text-sm font-semibold bg-gray-900 text-white rounded-lg hover:bg-gray-800">💬</button>
+            </form>
+          </div>
         </article>
         {% endfor %}
       </div>
@@ -176,27 +204,9 @@
     {% endif %}
 
     <section id="composer" class="pt-10">
-      <form id="composer-form" method="post" action="{% url 'notebook_block_create' selected_page.id %}" class="pb-10 border-b border-gray-100">
-        {% csrf_token %}
-        <div class="space-y-4 mb-6">
-          <div class="flex gap-3 items-start">
-            <input type="text" placeholder="Title (optional)" name="title" class="flex-1 text-lg font-medium text-gray-900 bg-transparent border-b border-gray-200 focus:border-indigo-300 focus:outline-none pb-2" value="">
-            <input type="text" placeholder="🎨" name="emoji" maxlength="2" class="text-2xl bg-transparent border-b border-gray-200 focus:border-indigo-300 focus:outline-none pb-2 w-12 text-center" value="">
-          </div>
-
-          <div id="editor-container" style="min-height: 300px;"></div>
-          <textarea name="body" id="body-field" style="display: none;"></textarea>
-
-          <div class="grid grid-cols-2 gap-3">
-            <input type="url" placeholder="Link (optional)" name="link_url" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" value="">
-            <input type="url" placeholder="Image URL (optional)" name="image_url" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" value="">
-          </div>
-        </div>
-
-        <div class="flex justify-end">
-          <button type="submit" title="Add note at bottom" class="h-10 w-10 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">✍️</button>
-        </div>
-      </form>
+      <div class="pb-10 border-b border-gray-100 flex justify-center">
+        <button id="open-write-modal-btn" type="button" title="Open focused writing modal" class="px-5 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors">Write something</button>
+      </div>
 
       <div class="pt-8 flex justify-center">
         <button id="new-page-bottom-btn" type="button" title="Start a new page" class="px-4 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-xl hover:bg-gray-50 hover:text-gray-900">+ New page</button>
@@ -266,6 +276,38 @@
       </div>
     </div>
   </div>
+
+  <div id="write-modal-backdrop" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 md:p-8">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <h2 class="text-lg font-semibold text-gray-900">Write something</h2>
+        <button id="close-write-modal-btn" type="button" title="Close" class="h-9 w-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-50">✕</button>
+      </div>
+
+      <form id="composer-form" method="post" action="{% url 'notebook_block_create' selected_page.id %}" class="flex-1 flex flex-col overflow-y-auto p-5 md:p-8">
+        {% csrf_token %}
+        <div class="space-y-4 mb-6">
+          <div class="flex gap-3 items-start">
+            <input type="text" placeholder="Title (optional)" name="title" class="flex-1 text-lg font-medium text-gray-900 bg-transparent border-b border-gray-200 focus:border-indigo-300 focus:outline-none pb-2" value="">
+            <input type="text" placeholder="🎨" name="emoji" maxlength="2" class="text-2xl bg-transparent border-b border-gray-200 focus:border-indigo-300 focus:outline-none pb-2 w-12 text-center" value="">
+          </div>
+
+          <div id="editor-container" style="min-height: 48vh;"></div>
+          <textarea name="body" id="body-field" style="display: none;"></textarea>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input type="url" placeholder="Link (optional)" name="link_url" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" value="">
+            <input type="url" placeholder="Image URL (optional)" name="image_url" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" value="">
+          </div>
+        </div>
+
+        <div class="mt-auto pt-4 flex justify-end gap-2">
+          <button id="dismiss-write-btn" type="button" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">Cancel</button>
+          <button type="submit" title="Publish to this page" class="px-5 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">Publish</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -294,6 +336,33 @@
       bodyField.value = quill.root.innerHTML;
     });
   }
+
+  // Write modal
+  const writeModalBackdrop = document.getElementById('write-modal-backdrop');
+  const openWriteModalBtn = document.getElementById('open-write-modal-btn');
+  const closeWriteModalBtn = document.getElementById('close-write-modal-btn');
+  const dismissWriteBtn = document.getElementById('dismiss-write-btn');
+
+  function openWriteModal() {
+    writeModalBackdrop.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => quill.focus(), 60);
+  }
+
+  function closeWriteModal() {
+    writeModalBackdrop.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  openWriteModalBtn?.addEventListener('click', openWriteModal);
+  closeWriteModalBtn?.addEventListener('click', closeWriteModal);
+  dismissWriteBtn?.addEventListener('click', closeWriteModal);
+
+  writeModalBackdrop?.addEventListener('click', function (event) {
+    if (event.target === writeModalBackdrop) {
+      closeWriteModal();
+    }
+  });
 
   // Quick actions
   const switchBookBtn = document.getElementById('switch-book-btn');
@@ -369,19 +438,38 @@
     });
   }
 
-  // Exit fullscreen on Escape
+  // Exit fullscreen or close writing modal on Escape
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && app.classList.contains('fullscreen-mode')) {
-      app.classList.remove('fullscreen-mode');
-      fullscreenBtn.textContent = '⛶';
+    if (e.key === 'Escape') {
+      if (app.classList.contains('fullscreen-mode')) {
+        app.classList.remove('fullscreen-mode');
+        fullscreenBtn.textContent = '⛶';
+      }
+
+      if (writeModalBackdrop && !writeModalBackdrop.classList.contains('hidden')) {
+        closeWriteModal();
+      }
     }
+  });
+
+  // Reveal comments on demand
+  document.querySelectorAll('.reveal-comment-btn').forEach((button) => {
+    button.addEventListener('click', function () {
+      const wrapper = this.closest('.mt-4');
+      const form = wrapper?.querySelector('.comment-form');
+      const ghost = wrapper?.querySelector('.comment-hidden-shell');
+      form?.classList.remove('hidden');
+      ghost?.classList.add('hidden');
+      this.classList.add('hidden');
+      form?.querySelector('input[name="content"]')?.focus();
+    });
   });
 
   // If redirected after adding note, land at bottom composer
   if (window.location.hash === '#composer') {
     setTimeout(() => {
       document.getElementById('composer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      quill.focus();
+      openWriteModal();
     }, 100);
   }
 </script>

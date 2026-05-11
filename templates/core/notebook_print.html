@@ -1,76 +1,138 @@
-{% extends 'base.html' %}
 {% load core_extras %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Print — {{ notebook.title }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --paper: #fffef9;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --accent: #4f46e5;
+    }
 
-{% block title %}Print — {{ notebook.title }}{% endblock %}
+    body {
+      background: linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%);
+      color: var(--ink);
+      font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
 
-{% block extra_head %}
-<style>
-  @media print {
-    .no-print { display: none !important; }
-    body { background: white !important; }
-    .print-page-break { page-break-after: always; }
-  }
-</style>
-{% endblock %}
+    .paper {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+    }
 
-{% block content %}
-<div class="max-w-4xl mx-auto">
-  <div class="no-print flex items-center justify-between mb-5">
-    <div>
-      <h1 class="text-2xl font-semibold text-gray-900">{{ notebook.title }}</h1>
-      <p class="text-sm text-gray-500">Complete notebook view ready for printing.</p>
-    </div>
-    <div class="flex items-center gap-2">
-      <a href="{% url 'notebooks' %}?notebook={{ notebook.id }}" class="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50">Back</a>
-      <button onclick="window.print()" class="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-gray-800">Print</button>
-    </div>
-  </div>
+    .published-body {
+      line-height: 1.9;
+      font-size: 1.02rem;
+    }
 
-  {% for page in pages %}
-    <section class="bg-white border border-gray-200 rounded-2xl p-6 mb-5 {% if not forloop.last %}print-page-break{% endif %}">
-      <h2 class="text-xl font-semibold text-gray-900">{{ page.display_title }}</h2>
-      <p class="text-xs text-gray-500 mb-4">{{ page.page_date|date:'l, j F Y' }}</p>
+    .published-body a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      word-break: break-all;
+    }
 
-      <div class="space-y-4">
-        {% for block in page.blocks.all %}
-          <article class="border border-gray-200 rounded-xl p-4">
-            <h3 class="text-base font-semibold text-gray-900">{% if block.emoji %}{{ block.emoji }} {% endif %}{{ block.title|default:'Untitled thought' }}</h3>
-            {% if block.body %}
-              <div class="text-sm text-gray-700 mt-2 leading-relaxed">{{ block.body|safe }}</div>
-            {% endif %}
-            {% if block.image_url %}
-              <img src="{{ block.image_url }}" alt="Notebook image" class="mt-3 rounded-lg border border-gray-200 max-h-96 object-cover w-full">
-            {% endif %}
+    .sidebar-scroll {
+      max-height: calc(100vh - 12rem);
+      overflow-y: auto;
+    }
 
-            {% with preview=block_previews|lookup:block.id %}
-              {% if preview %}
-                <div class="mt-3 border border-gray-200 rounded-lg p-2 bg-gray-50 text-xs">
-                  <div class="font-semibold text-gray-700">{{ preview.domain }}</div>
-                  <div class="text-gray-500">{{ preview.compact_url }}</div>
-                </div>
-              {% endif %}
-            {% endwith %}
-
-            {% if block.comments.exists %}
-              <div class="mt-3 pt-3 border-t border-gray-200">
-                <p class="text-xs font-semibold text-gray-600 mb-1">Comments</p>
-                <div class="space-y-1.5">
-                  {% for comment in block.comments.all %}
-                    <div class="text-xs text-gray-700">• <span class="font-medium">{{ comment.user.first_name|default:comment.user.username }}</span>: {{ comment.content }}</div>
-                  {% endfor %}
-                </div>
-              </div>
-            {% endif %}
-          </article>
-        {% empty %}
-          <p class="text-sm text-gray-500">No entries on this page.</p>
-        {% endfor %}
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; }
+      .paper { box-shadow: none !important; border: none !important; }
+      .print-page-break { page-break-after: always; }
+      .sidebar-scroll { max-height: none !important; overflow: visible !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-10">
+    <header class="no-print flex items-center justify-between mb-6 md:mb-8">
+      <div>
+        <p class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Published notebook view</p>
+        <h1 class="text-2xl md:text-3xl font-semibold text-gray-900">{{ notebook.title }}</h1>
       </div>
-    </section>
-  {% empty %}
-    <div class="bg-white border border-gray-200 rounded-2xl p-8 text-center text-gray-500">
-      This notebook has no pages yet.
-    </div>
-  {% endfor %}
-</div>
-{% endblock %}
+      <div class="flex items-center gap-2">
+        <a href="{% url 'notebooks' %}?notebook={{ notebook.id }}" class="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50">Back</a>
+        <button onclick="window.print()" class="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-gray-800">Print</button>
+      </div>
+    </header>
+
+    {% for page in pages %}
+      <section class="paper rounded-2xl p-5 md:p-8 mb-8 {% if not forloop.last %}print-page-break{% endif %}">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <main class="lg:col-span-8">
+            <h2 class="text-2xl font-semibold text-gray-900">{{ page.display_title }}</h2>
+            <p class="text-xs uppercase tracking-[0.16em] text-gray-500 mt-1 mb-6">{{ page.page_date|date:'l, j F Y' }}</p>
+
+            <div class="space-y-8">
+              {% for block in page.blocks.all %}
+                <article class="pb-6 border-b border-gray-200 last:border-b-0 last:pb-0">
+                  <h3 class="text-lg font-semibold text-gray-900">{% if block.emoji %}{{ block.emoji }} {% endif %}{{ block.title|default:'Untitled thought' }}</h3>
+                  <p class="text-xs text-gray-400 mt-1">{{ block.created_at|date:'j M Y · H:i' }}</p>
+
+                  {% if block.body %}
+                    <div class="published-body mt-4 text-gray-800">{{ block.body|safe }}</div>
+                  {% endif %}
+
+                  {% if block.image_url %}
+                    <img src="{{ block.image_url }}" alt="Notebook image" class="mt-4 rounded-xl border border-gray-200 max-h-96 object-cover w-full">
+                  {% endif %}
+
+                  {% with preview=block_previews|lookup:block.id %}
+                    {% if preview %}
+                      <div class="mt-4 border border-gray-200 rounded-xl p-3 bg-gray-50">
+                        <div class="text-sm font-semibold text-gray-700">{{ preview.domain }}</div>
+                        <div class="text-xs text-gray-500 mt-0.5">{{ preview.compact_url }}</div>
+                      </div>
+                    {% endif %}
+                  {% endwith %}
+                </article>
+              {% empty %}
+                <p class="text-sm text-gray-500">No entries on this page.</p>
+              {% endfor %}
+            </div>
+          </main>
+
+          <aside class="lg:col-span-4 lg:pl-2">
+            <div class="border border-gray-200 rounded-xl bg-white p-4 sticky top-6">
+              <p class="text-xs uppercase tracking-[0.16em] text-gray-500 mb-3">Comments sidebar</p>
+              <div class="space-y-4 sidebar-scroll pr-1">
+                {% for block in page.blocks.all %}
+                  <section class="border border-gray-200 rounded-lg p-3 bg-gray-50/70">
+                    <h4 class="text-xs font-semibold text-gray-700">{% if block.emoji %}{{ block.emoji }} {% endif %}{{ block.title|default:'Untitled thought' }}</h4>
+                    <div class="mt-2 space-y-2">
+                      {% for comment in block.comments.all %}
+                        <div class="bg-white border border-gray-200 rounded-md p-2">
+                          <div class="text-xs font-medium text-gray-700">{{ comment.user.first_name|default:comment.user.username }}</div>
+                          <div class="text-xs text-gray-600 mt-0.5 leading-relaxed">{{ comment.content|linebreaksbr }}</div>
+                        </div>
+                      {% empty %}
+                        <p class="text-xs text-gray-400">No comments</p>
+                      {% endfor %}
+                    </div>
+                  </section>
+                {% empty %}
+                  <p class="text-xs text-gray-400">No notes yet.</p>
+                {% endfor %}
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    {% empty %}
+      <div class="paper rounded-2xl p-10 text-center text-gray-500">
+        This notebook has no pages yet.
+      </div>
+    {% endfor %}
+  </div>
+</body>
+</html>
