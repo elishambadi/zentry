@@ -2699,7 +2699,7 @@ def notebook_block_create(request, page_id):
     page.notebook.updated_at = timezone.now()
     page.notebook.save(update_fields=['updated_at'])
     messages.success(request, 'Thought captured.')
-    return redirect(f"{reverse('notebooks')}?notebook={page.notebook_id}&page={page.id}")
+    return redirect(f"{reverse('notebooks')}?notebook={page.notebook_id}&page={page.id}#composer")
 
 
 @login_required
