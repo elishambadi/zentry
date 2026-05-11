@@ -4,241 +4,307 @@
 {% block title %}Notebooks — Zentry{% endblock %}
 
 {% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.snow.css" rel="stylesheet">
 <style>
-  .zen-glass {
-    background: linear-gradient(180deg, rgba(255,255,255,.9) 0%, rgba(249,250,251,.92) 100%);
-    backdrop-filter: blur(10px);
-  }
-
-  .writing-focus .focus-dimmable {
-    filter: blur(2px);
-    opacity: .28;
-    pointer-events: none;
-    transition: all .25s ease;
-  }
-
-  .writing-focus .composer-zone {
-    filter: none;
-    opacity: 1;
-    pointer-events: auto;
-  }
-
   .notebook-body a {
     color: #4f46e5;
     text-decoration: underline;
     word-break: break-all;
   }
+
+  .ql-toolbar.ql-snow {
+    border: none;
+    padding: 12px 0;
+    background: transparent;
+  }
+
+  .ql-container.ql-snow {
+    border: none;
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+
+  .ql-editor {
+    padding: 0;
+    min-height: 60vh;
+  }
+
+  .ql-editor.ql-blank::before {
+    color: #d1d5db;
+    font-style: italic;
+  }
+
+  .ql-snow .ql-formats {
+    margin: 0;
+  }
+
+  .ql-snow .ql-stroke {
+    stroke: #6b7280;
+  }
+
+  .ql-snow .ql-fill {
+    fill: #6b7280;
+  }
+
+  .ql-toolbar.ql-snow button:hover,
+  .ql-toolbar.ql-snow button:focus {
+    color: #1f2937;
+  }
+
+  .ql-toolbar.ql-snow button.ql-active {
+    color: #4f46e5;
+  }
+
+  .ql-toolbar.ql-snow .ql-stroke.ql-active {
+    stroke: #4f46e5;
+  }
+
+  .ql-toolbar.ql-snow .ql-fill.ql-active {
+    fill: #4f46e5;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div id="notebook-app" class="min-h-[calc(100vh-7rem)]">
-  <div class="flex items-center justify-between mb-5">
-    <div>
-      <h1 class="text-2xl font-semibold text-gray-900">Notebooks</h1>
-      <p class="text-sm text-gray-500">A calm conversational workdesk for your thoughts.</p>
+<div id="notebook-app" class="min-h-[calc(100vh-7rem)] flex flex-col">
+  <!-- Minimal toolbar -->
+  <div class="flex items-center justify-between px-6 py-3 border-b border-gray-100 sticky top-0 z-10 bg-white/50 backdrop-blur-sm">
+    <!-- Left side - minimal info -->
+    <div class="flex items-center gap-6">
+      <div>
+        <p class="text-xs uppercase tracking-widest text-gray-400 mb-1">{{ selected_page.page_date|date:'l, j F Y' }}</p>
+        <h1 class="text-lg font-semibold text-gray-900">{{ selected_page.display_title }}</h1>
+      </div>
     </div>
+
+    <!-- Right side - all tools -->
     <div class="flex items-center gap-2">
-      <button type="button" id="focus-toggle" class="text-xs px-3 py-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-600">
-        Focus writing
+      <select id="notebook-selector" class="text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700">
+        {% for nb in notebooks %}
+          <option value="{% url 'notebooks' %}?notebook={{ nb.id }}" {% if nb.id == selected_notebook.id %}selected{% endif %}>{{ nb.title }}</option>
+        {% endfor %}
+      </select>
+
+      <select id="page-selector" class="text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700">
+        {% for page in pages %}
+          <option value="{% url 'notebooks' %}?notebook={{ selected_notebook.id }}&page={{ page.id }}" {% if page.id == selected_page.id %}selected{% endif %}>{{ page.display_title }}</option>
+        {% endfor %}
+        <option value="#">+ New page</option>
+      </select>
+
+      <button id="new-notebook-btn" class="text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700">
+        + Notebook
       </button>
-      <a href="{% url 'notebook_print' selected_notebook.id %}" class="text-xs px-3 py-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-700">
-        Print notebook
+
+      <a href="{% url 'notebook_print' selected_notebook.id %}" target="_blank" class="text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700">
+        🖨️ Print
       </a>
     </div>
   </div>
 
-  <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-    <aside class="focus-dimmable xl:col-span-3 zen-glass border border-gray-200 rounded-2xl p-4 space-y-4 sticky top-6">
-      <div>
-        <p class="text-[11px] uppercase tracking-widest text-gray-400 mb-2">Notebooks</p>
-        <div class="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-          {% for nb in notebooks %}
-            <a href="{% url 'notebooks' %}?notebook={{ nb.id }}"
-               class="block px-3 py-2 rounded-lg text-sm {% if nb.id == selected_notebook.id %}bg-indigo-50 text-indigo-700 border border-indigo-100{% else %}bg-white text-gray-600 border border-transparent hover:border-gray-200{% endif %}">
-              <div class="font-medium">{{ nb.title }}</div>
-              {% if nb.description %}<div class="text-[11px] text-gray-400 truncate">{{ nb.description }}</div>{% endif %}
-            </a>
-          {% endfor %}
-        </div>
-      </div>
-
-      <details class="group">
-        <summary class="cursor-pointer text-xs text-indigo-600 hover:text-indigo-700">+ New notebook</summary>
-        <form method="post" class="mt-2 space-y-2">
-          {% csrf_token %}
-          <input type="hidden" name="intent" value="create_notebook">
-          {{ notebook_form.title }}
-          {{ notebook_form.description }}
-          <button class="w-full py-2 rounded-lg text-xs font-semibold bg-gray-900 text-white hover:bg-gray-800">Create</button>
-        </form>
-      </details>
-
-      <div>
-        <p class="text-[11px] uppercase tracking-widest text-gray-400 mb-2">Pages</p>
-        <div class="space-y-1 max-h-64 overflow-y-auto pr-1">
-          {% for page in pages %}
-            <a href="{% url 'notebooks' %}?notebook={{ selected_notebook.id }}&page={{ page.id }}"
-               class="block px-3 py-2 rounded-lg text-sm border {% if page.id == selected_page.id %}border-indigo-200 bg-indigo-50 text-indigo-700{% else %}border-transparent bg-white text-gray-600 hover:border-gray-200{% endif %}">
-              <div class="font-medium">{{ page.display_title }}</div>
-              <div class="text-[11px] text-gray-400">{{ page.page_date|date:'D, j M Y' }}</div>
-            </a>
-          {% endfor %}
-        </div>
-      </div>
-
-      <details>
-        <summary class="cursor-pointer text-xs text-gray-600 hover:text-gray-800">+ New page</summary>
-        <form method="post" action="{% url 'notebook_page_create' selected_notebook.id %}" class="mt-2 space-y-2">
-          {% csrf_token %}
-          {{ page_form.title }}
-          {{ page_form.page_date }}
-          <button class="w-full py-2 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Create page</button>
-        </form>
-      </details>
-    </aside>
-
-    <main class="xl:col-span-6 space-y-4">
-      <section class="focus-dimmable zen-glass border border-gray-200 rounded-2xl p-5">
-        <div class="flex items-end justify-between gap-3 mb-4">
-          <div>
-            <p class="text-xs uppercase tracking-widest text-gray-400">Current page</p>
-            <h2 class="text-xl font-semibold text-gray-900">{{ selected_page.display_title }}</h2>
-            <p class="text-xs text-gray-500">{{ selected_page.page_date|date:'l, j F Y' }} · Multiple notes for this day stay on one page.</p>
+  <!-- Main editor area -->
+  <div class="flex-1 flex justify-center items-start overflow-y-auto">
+    <div class="w-full max-w-3xl px-6 py-8">
+      <!-- Block composer form -->
+      <form method="post" action="{% url 'notebook_block_create' selected_page.id %}" class="mb-12 pb-12 border-b border-gray-100">
+        {% csrf_token %}
+        <div class="space-y-4 mb-6">
+          <div class="flex gap-3 items-start">
+            <input type="text" placeholder="Title (optional)" name="title" class="flex-1 text-lg font-medium text-gray-900 bg-transparent border-b border-gray-200 focus:border-indigo-300 focus:outline-none pb-2" value="">
+            <input type="text" placeholder="🎨" name="emoji" maxlength="2" class="text-2xl bg-transparent border-b border-gray-200 focus:border-indigo-300 focus:outline-none pb-2 w-12 text-center" value="">
           </div>
-          {% if selected_page.page_date != today %}
-          <div class="text-xs px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700">Historical page</div>
-          {% else %}
-          <div class="text-xs px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">Today</div>
-          {% endif %}
+
+          <!-- Quill WYSIWYG Editor -->
+          <div id="editor-container" style="min-height: 300px;"></div>
+          <textarea name="body" id="body-field" style="display: none;"></textarea>
+
+          <div class="grid grid-cols-2 gap-3">
+            <input type="url" placeholder="Link (optional)" name="link_url" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" value="">
+            <input type="url" placeholder="Image URL (optional)" name="image_url" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" value="">
+          </div>
         </div>
 
-        <form method="post" action="{% url 'notebook_block_create' selected_page.id %}" class="composer-zone space-y-3 p-4 rounded-xl border border-indigo-100 bg-white">
-          {% csrf_token %}
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <div class="md:col-span-3">{{ block_form.title }}</div>
-            <div>{{ block_form.emoji }}</div>
-          </div>
-          {{ block_form.body }}
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {{ block_form.link_url }}
-            {{ block_form.image_url }}
-          </div>
-          <div class="flex justify-end">
-            <button class="px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Add to page</button>
-          </div>
-        </form>
-      </section>
+        <div class="flex justify-end">
+          <button type="submit" class="px-6 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+            Add note
+          </button>
+        </div>
+      </form>
 
-      <section class="space-y-3">
-        {% if blocks %}
+      <!-- Existing blocks display -->
+      {% if blocks %}
+        <div class="space-y-8">
           {% for block in blocks %}
-          <article id="block-{{ block.id }}" class="focus-dimmable border border-gray-200 bg-white rounded-2xl p-4 shadow-sm">
-            <div class="flex items-start justify-between gap-2 mb-2">
-              <div class="min-w-0">
-                <h3 class="text-lg font-semibold text-gray-900 truncate">{% if block.emoji %}{{ block.emoji }} {% endif %}{{ block.title|default:'Untitled thought' }}</h3>
-                <p class="text-[11px] text-gray-400">{{ block.created_at|date:'j M Y · H:i' }}</p>
+          <article id="block-{{ block.id }}" class="pb-8 border-b border-gray-100 last:border-0">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div>
+                {% if block.emoji or block.title %}
+                <h3 class="text-xl font-semibold text-gray-900">{% if block.emoji %}{{ block.emoji }} {% endif %}{{ block.title|default:'Untitled thought' }}</h3>
+                {% endif %}
+                <p class="text-xs text-gray-400 mt-1">{{ block.created_at|date:'j M Y · H:i' }}</p>
               </div>
             </div>
 
             {% if block.body %}
-            <div class="notebook-body text-sm text-gray-700 leading-relaxed">{{ block.body|linebreaksbr|urlize }}</div>
+            <div class="notebook-body text-base text-gray-700 leading-relaxed my-4">{{ block.body|linebreaksbr|urlize }}</div>
             {% endif %}
 
             {% if block.image_url %}
-            <a href="{{ block.image_url }}" target="_blank" rel="noopener noreferrer" class="block mt-3">
-              <img src="{{ block.image_url }}" alt="Notebook visual" class="rounded-xl border border-gray-200 w-full object-cover max-h-80">
+            <a href="{{ block.image_url }}" target="_blank" rel="noopener noreferrer" class="block my-4">
+              <img src="{{ block.image_url }}" alt="Note visual" class="rounded-xl w-full object-cover max-h-96">
             </a>
             {% endif %}
 
             {% with preview=block_previews|lookup:block.id %}
               {% if preview %}
               <a href="{{ block.link_url }}" target="_blank" rel="noopener noreferrer"
-                 class="mt-3 flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 px-3 py-2 transition-colors">
+                 class="inline-flex items-center gap-3 mt-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 px-4 py-3 transition-colors">
                 <img src="{{ preview.favicon }}" alt="site" class="h-5 w-5 rounded">
                 <div class="min-w-0">
-                  <p class="text-sm font-medium text-gray-800 truncate">{{ preview.domain }}</p>
-                  <p class="text-[11px] text-gray-500 truncate">{{ preview.compact_url }}</p>
+                  <p class="text-sm font-medium text-gray-800">{{ preview.domain }}</p>
+                  <p class="text-xs text-gray-500 truncate">{{ preview.compact_url }}</p>
                 </div>
               </a>
               {% endif %}
             {% endwith %}
+
+            <!-- Sidebar comments for this block -->
+            {% if block.comments.exists %}
+            <details class="mt-6 group">
+              <summary class="cursor-pointer text-xs font-semibold text-indigo-600 hover:text-indigo-700">💬 {{ block.comments.count }} comment{{ block.comments.count|pluralize }}</summary>
+              <div class="mt-4 ml-4 space-y-3 border-l-2 border-gray-200 pl-4">
+                {% for comment in block.comments.all %}
+                <div class="text-sm bg-gray-50 border border-gray-100 rounded-lg p-3">
+                  <div class="font-semibold text-gray-700 text-xs">{{ comment.user.first_name|default:comment.user.username }}</div>
+                  <div class="text-gray-600 text-sm mt-1">{{ comment.content|linebreaksbr }}</div>
+                  <div class="text-xs text-gray-400 mt-2">{{ comment.created_at|date:'j M · H:i' }}</div>
+                </div>
+                {% endfor %}
+              </div>
+            </details>
+            {% endif %}
+
+            <!-- Add comment -->
+            <form method="post" action="{% url 'notebook_comment_create' block.id %}" class="mt-4 flex gap-2">
+              {% csrf_token %}
+              <input type="text" name="content" placeholder="Add a comment..." class="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" required>
+              <button type="submit" class="px-3 py-2 text-sm font-semibold bg-gray-900 text-white rounded-lg hover:bg-gray-800">💬</button>
+            </form>
           </article>
           {% endfor %}
-        {% else %}
-          <div class="focus-dimmable text-center border border-dashed border-gray-300 bg-white rounded-2xl p-10">
-            <p class="text-gray-500 text-sm">No notes yet on this page. Start with one thought above.</p>
-          </div>
-        {% endif %}
-      </section>
-    </main>
+        </div>
+      {% else %}
+        <div class="text-center py-12">
+          <p class="text-gray-400 text-sm">No notes yet. Start writing above.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
 
-    <aside class="focus-dimmable xl:col-span-3 zen-glass border border-gray-200 rounded-2xl p-4 sticky top-6">
-      <p class="text-[11px] uppercase tracking-widest text-gray-400 mb-3">Sidebar comments</p>
-      <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-        {% for block in blocks %}
-          <section class="border border-gray-200 rounded-xl bg-white p-3">
-            <h4 class="text-xs font-semibold text-gray-700 truncate">{% if block.emoji %}{{ block.emoji }} {% endif %}{{ block.title|default:'Untitled thought' }}</h4>
-            <div class="mt-2 space-y-2">
-              {% for comment in block.comments.all %}
-                <div class="text-xs bg-gray-50 border border-gray-100 rounded-lg p-2">
-                  <div class="font-medium text-gray-700">{{ comment.user.first_name|default:comment.user.username }}</div>
-                  <div class="text-gray-600 mt-0.5">{{ comment.content|linebreaksbr }}</div>
-                  <div class="text-[10px] text-gray-400 mt-1">{{ comment.created_at|date:'j M · H:i' }}</div>
-                </div>
-              {% empty %}
-                <p class="text-[11px] text-gray-400">No comments yet.</p>
-              {% endfor %}
-            </div>
-            <form method="post" action="{% url 'notebook_comment_create' block.id %}" class="mt-2 space-y-2">
-              {% csrf_token %}
-              {{ comment_form.content }}
-              <button class="w-full py-1.5 rounded-md text-[11px] font-semibold bg-gray-900 text-white hover:bg-gray-800">Comment</button>
-            </form>
-          </section>
-        {% empty %}
-          <p class="text-xs text-gray-400">Add notes to unlock contextual comments here.</p>
-        {% endfor %}
-      </div>
-    </aside>
+  <!-- Modals -->
+  <div id="new-notebook-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-20">
+    <div class="bg-white rounded-2xl p-6 w-96 shadow-lg">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">New Notebook</h2>
+      <form method="post" class="space-y-3">
+        {% csrf_token %}
+        <input type="hidden" name="intent" value="create_notebook">
+        {{ notebook_form.title }}
+        {{ notebook_form.description }}
+        <div class="flex gap-2 justify-end pt-2">
+          <button type="button" class="px-4 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50">Cancel</button>
+          <button type="submit" class="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="new-page-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-20">
+    <div class="bg-white rounded-2xl p-6 w-96 shadow-lg">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">New Page</h2>
+      <form method="post" action="{% url 'notebook_page_create' selected_notebook.id %}" class="space-y-3">
+        {% csrf_token %}
+        {{ page_form.title }}
+        {{ page_form.page_date }}
+        <div class="flex gap-2 justify-end pt-2">
+          <button type="button" class="px-4 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50">Cancel</button>
+          <button type="submit" class="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Create</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 
 <script>
-  (function () {
-    const app = document.getElementById('notebook-app');
-    const toggleBtn = document.getElementById('focus-toggle');
-    const composerInputs = document.querySelectorAll('.composer-zone textarea, .composer-zone input[type="text"], .composer-zone input[type="url"]');
-
-    function setFocusedState(on) {
-      app.classList.toggle('writing-focus', on);
-      toggleBtn.textContent = on ? 'Exit focus mode' : 'Focus writing';
+  // Initialize Quill editor
+  const quill = new Quill('#editor-container', {
+    theme: 'snow',
+    placeholder: 'Write your thoughts here...',
+    modules: {
+      toolbar: [
+        ['bold', 'italic', 'underline', 'strike'],
+        ['blockquote'],
+        ['link'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        ['clean']
+      ]
     }
+  });
 
-    toggleBtn?.addEventListener('click', function () {
-      setFocusedState(!app.classList.contains('writing-focus'));
+  // Get the block composer form
+  const composerForm = document.querySelector('form:not([action*="comment"])');
+
+  // Sync Quill content to hidden textarea before form submission
+  if (composerForm) {
+    composerForm.addEventListener('submit', function(e) {
+      const bodyField = document.getElementById('body-field');
+      bodyField.value = quill.root.innerHTML;
     });
+  }
 
-    composerInputs.forEach(function (input) {
-      input.addEventListener('focus', function () { setFocusedState(true); });
-      input.addEventListener('blur', function () {
-        window.setTimeout(function () {
-          const activeInsideComposer = document.activeElement && document.activeElement.closest('.composer-zone');
-          if (!activeInsideComposer && !document.querySelector('.composer-zone :focus')) {
-            setFocusedState(false);
-          }
-        }, 100);
-      });
+  // Notebook selector
+  const notebookSelector = document.getElementById('notebook-selector');
+  if (notebookSelector) {
+    notebookSelector.addEventListener('change', function() {
+      if (this.value) window.location.href = this.value;
     });
+  }
 
-    // Auto-enter focus when writing on today's page
-    const isTodayBadge = document.querySelector('.bg-emerald-50');
-    if (isTodayBadge) {
-      const bodyField = document.querySelector('.composer-zone textarea');
-      if (bodyField && bodyField.value.trim() === '') {
-        bodyField.focus();
+  // Page selector
+  const pageSelector = document.getElementById('page-selector');
+  if (pageSelector) {
+    pageSelector.addEventListener('change', function() {
+      if (this.value === '#') {
+        document.getElementById('new-page-modal').classList.remove('hidden');
+        this.selectedIndex = 0;
+      } else if (this.value) {
+        window.location.href = this.value;
       }
+    });
+  }
+
+  // New notebook button
+  const newNotebookBtn = document.getElementById('new-notebook-btn');
+  if (newNotebookBtn) {
+    newNotebookBtn.addEventListener('click', function() {
+      document.getElementById('new-notebook-modal').classList.remove('hidden');
+    });
+  }
+
+  // Modal close buttons
+  document.querySelectorAll('button[type="button"]').forEach(btn => {
+    if (btn.textContent.trim() === 'Cancel') {
+      btn.addEventListener('click', function() {
+        const modal = this.closest('[id$="modal"]');
+        if (modal) modal.classList.add('hidden');
+      });
     }
-  })();
+  });
+
+  // Auto-focus editor on today's page
+  if (composerForm) {
+    setTimeout(() => quill.focus(), 100);
+  }
 </script>
 {% endblock %}
