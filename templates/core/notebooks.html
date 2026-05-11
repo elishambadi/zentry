@@ -95,6 +95,37 @@
     backdrop-filter: blur(10px);
     background: rgba(17, 24, 39, 0.45);
   }
+
+  .write-modal-panel {
+    height: min(90vh, 920px);
+  }
+
+  .write-modal-form {
+    min-height: 0;
+  }
+
+  .write-editor-shell {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .write-modal-panel .ql-toolbar.ql-snow {
+    padding-top: 0;
+    padding-bottom: 12px;
+    flex-shrink: 0;
+  }
+
+  .write-modal-panel .ql-container.ql-snow {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .write-modal-panel .ql-editor {
+    min-height: 100%;
+    padding-bottom: 1.25rem;
+  }
 </style>
 {% endblock %}
 
@@ -234,21 +265,23 @@
   </div>
 
   <div id="write-modal-backdrop" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 md:p-8">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200">
+    <div class="write-modal-panel bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col border border-gray-200 overflow-hidden">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <h2 class="text-lg font-semibold text-gray-900">Write something</h2>
         <button id="close-write-modal-btn" type="button" title="Close" class="h-9 w-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-50">✕</button>
       </div>
 
-      <form id="composer-form" method="post" action="{% url 'notebook_block_create' selected_page.id %}" class="flex-1 flex flex-col overflow-y-auto p-5 md:p-8">
+      <form id="composer-form" method="post" action="{% url 'notebook_block_create' selected_page.id %}" class="write-modal-form flex-1 flex flex-col p-5 md:p-8 overflow-hidden">
         {% csrf_token %}
-        <div class="space-y-4 mb-6">
+        <div class="space-y-4 mb-6 flex-shrink-0">
           <div class="flex gap-3 items-start">
             <input type="text" placeholder="Title (optional)" name="title" class="flex-1 text-lg font-medium text-gray-900 bg-transparent border-b border-gray-200 focus:border-indigo-300 focus:outline-none pb-2" value="">
             <input type="text" placeholder="🎨" name="emoji" maxlength="2" class="text-2xl bg-transparent border-b border-gray-200 focus:border-indigo-300 focus:outline-none pb-2 w-12 text-center" value="">
           </div>
 
-          <div id="editor-container" style="min-height: 48vh;"></div>
+          <div class="write-editor-shell">
+            <div id="editor-container"></div>
+          </div>
           <textarea name="body" id="body-field" style="display: none;"></textarea>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
