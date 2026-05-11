@@ -49,7 +49,7 @@
     .print-page-content {
       flex: 1;
       padding: 0.75in;
-      overflow: visible;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
     }
@@ -152,8 +152,8 @@
     }
 
     .published-body {
-      line-height: 1.65;
-      font-size: 0.9rem;
+      line-height: 1.8;
+      font-size: 0.95rem;
       color: var(--ink);
     }
 
@@ -161,12 +161,12 @@
       color: var(--accent);
       text-decoration: underline;
       text-underline-offset: 2px;
-      word-break: break-word;
+      word-break: break-all;
     }
 
     .note-block {
-      margin-bottom: 1.25rem;
-      padding-bottom: 1rem;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
       border-bottom: 1px solid var(--line);
     }
 
@@ -177,45 +177,45 @@
     }
 
     .note-block-title {
-      font-size: 1rem;
+      font-size: 1.1rem;
       font-weight: 600;
       color: var(--ink);
-      margin: 0 0 0.15rem 0;
+      margin: 0 0 0.25rem 0;
     }
 
     .note-block-meta {
-      font-size: 0.7rem;
+      font-size: 0.75rem;
       color: var(--muted);
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
     }
 
     .note-block-image {
-      margin: 0.75rem 0;
+      margin: 1rem 0;
       border-radius: 0.5rem;
       border: 1px solid var(--line);
-      max-height: 3rem;
+      max-height: 4rem;
       object-fit: cover;
       width: 100%;
     }
 
     .link-preview {
-      margin: 0.75rem 0;
-      padding: 0.5rem;
+      margin: 1rem 0;
+      padding: 0.75rem;
       border: 1px solid var(--line);
       border-radius: 0.5rem;
       background: #f9fafb;
-      font-size: 0.75rem;
+      font-size: 0.8rem;
     }
 
     .link-preview-domain {
       font-weight: 600;
       color: var(--ink);
-      margin-bottom: 0.15rem;
+      margin-bottom: 0.25rem;
     }
 
     .link-preview-url {
       color: var(--muted);
-      word-break: break-word;
+      word-break: break-all;
     }
 
     /* No-print elements */
@@ -284,9 +284,6 @@
     .page-scroll-container {
       flex: 1;
       overflow-y: auto;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
     }
 
     .page-scroll-container::-webkit-scrollbar {
@@ -368,8 +365,8 @@
     <div class="print-page content-page">
       <div class="print-page-content">
         <div class="page-scroll-container">
-          <h2 class="text-2xl font-semibold text-gray-900 mb-0.5">{{ page.display_title }}</h2>
-          <p class="text-xs uppercase tracking-[0.16em] text-gray-500 mb-4">{{ page.page_date|date:'l, j F Y' }}</p>
+          <h2 class="text-2xl font-semibold text-gray-900 mb-1">{{ page.display_title }}</h2>
+          <p class="text-xs uppercase tracking-[0.16em] text-gray-500 mb-6">{{ page.page_date|date:'l, j F Y' }}</p>
 
           <div class="space-y-0">
             {% for block in page.blocks.all %}
