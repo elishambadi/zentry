@@ -109,6 +109,7 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
   .write-modal-panel .ql-toolbar.ql-snow {
@@ -120,6 +121,7 @@
   .write-modal-panel .ql-container.ql-snow {
     flex: 1 1 auto;
     min-height: 0;
+    overflow-y: auto;
   }
 
   .write-modal-panel .ql-editor {
@@ -271,7 +273,7 @@
         <button id="close-write-modal-btn" type="button" title="Close" class="h-9 w-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-50">✕</button>
       </div>
 
-      <form id="composer-form" method="post" action="{% url 'notebook_block_create' selected_page.id %}" class="write-modal-form flex-1 flex flex-col p-5 md:p-8 overflow-hidden">
+      <form id="composer-form" method="post" action="{% url 'notebook_block_create' selected_page.id %}" class="write-modal-form flex-1 flex flex-col p-5 md:p-8 overflow-y-auto">
         {% csrf_token %}
         <div class="space-y-4 mb-6 flex-shrink-0">
           <div class="flex gap-3 items-start">
