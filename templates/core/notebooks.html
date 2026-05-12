@@ -165,7 +165,11 @@
           <div class="notebook-body text-base text-gray-700 leading-relaxed my-4">{{ block.body|safe }}</div>
           {% endif %}
 
-          {% if block.image_url %}
+          {% if block.image %}
+          <a href="{{ block.image.url }}" target="_blank" rel="noopener noreferrer" class="block my-4">
+            <img src="{{ block.image.url }}" alt="Note visual" class="rounded-xl w-full object-cover max-h-96">
+          </a>
+          {% elif block.image_url %}
           <a href="{{ block.image_url }}" target="_blank" rel="noopener noreferrer" class="block my-4">
             <img src="{{ block.image_url }}" alt="Note visual" class="rounded-xl w-full object-cover max-h-96">
           </a>
@@ -273,7 +277,7 @@
         <button id="close-write-modal-btn" type="button" title="Close" class="h-9 w-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-50">✕</button>
       </div>
 
-      <form id="composer-form" method="post" action="{% url 'notebook_block_create' selected_page.id %}" class="write-modal-form flex-1 flex flex-col p-5 md:p-8 overflow-y-auto">
+      <form id="composer-form" method="post" enctype="multipart/form-data" action="{% url 'notebook_block_create' selected_page.id %}" class="write-modal-form flex-1 flex flex-col p-5 md:p-8 overflow-y-auto">
         {% csrf_token %}
         <div class="space-y-4 mb-6 flex-shrink-0">
           <div class="flex gap-3 items-start">
@@ -286,9 +290,10 @@
           </div>
           <textarea name="body" id="body-field" style="display: none;"></textarea>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <input type="url" placeholder="Link (optional)" name="link_url" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" value="">
             <input type="url" placeholder="Image URL (optional)" name="image_url" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" value="">
+            <input type="file" accept="image/*" name="image" class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300">
           </div>
         </div>
 

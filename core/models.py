@@ -322,6 +322,7 @@ class NotebookBlock(models.Model):
     title = models.CharField(max_length=200, blank=True)
     body = models.TextField(blank=True)
     emoji = models.CharField(max_length=20, blank=True)
+    image = models.ImageField(upload_to='notebook_blocks/', null=True, blank=True)
     image_url = models.URLField(max_length=500, blank=True)
     link_url = models.URLField(max_length=500, blank=True)
     order = models.PositiveIntegerField(default=0)

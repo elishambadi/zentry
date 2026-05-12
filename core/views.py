@@ -10,15 +10,19 @@ from django.db.models import Q, Count, Prefetch
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.urls import reverse
+from django.core.files.base import ContentFile
 from datetime import date, datetime, timedelta
 from django.utils import timezone
 from decouple import config
+from io import BytesIO
 import json
 import calendar
 import logging
 import random
 import time
 import httpx
+import uuid
+from PIL import Image, ImageOps
 from urllib.parse import urlparse
 
 logger = logging.getLogger('core.zenai')
@@ -85,6 +89,24 @@ def build_simple_link_preview(url_value):
         }
     except Exception:
         return None
+
+
+def compress_uploaded_image(uploaded_file, max_size=(1800, 1800), quality=82):
+    uploaded_file.seek(0)
+    image = Image.open(uploaded_file)
+    image = ImageOps.exif_transpose(image)
+
+    if image.mode in ('RGBA', 'P'):
+        image = image.convert('RGB')
+
+    image.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+    output = BytesIO()
+    image.save(output, format='JPEG', quality=quality, optimize=True, progressive=True)
+    output.seek(0)
+
+    filename = f"notebook_blocks/{uuid.uuid4().hex}.jpg"
+    return filename, ContentFile(output.read())
 
 
 
@@ -2687,12 +2709,22 @@ def notebook_page_create(request, notebook_id):
 @require_POST
 def notebook_block_create(request, page_id):
     page = get_object_or_404(NotebookPage, id=page_id, notebook__user=request.user)
-    form = NotebookBlockForm(request.POST)
+    form = NotebookBlockForm(request.POST, request.FILES)
     if not form.is_valid():
         messages.error(request, 'Unable to add note. Please check required fields.')
         return redirect(f"{reverse('notebooks')}?notebook={page.notebook_id}&page={page.id}")
 
     block = form.save(commit=False)
+
+    uploaded_image = request.FILES.get('image')
+    if uploaded_image:
+        try:
+            filename, compressed_file = compress_uploaded_image(uploaded_image)
+            block.image.save(filename, compressed_file, save=False)
+        except Exception:
+            messages.error(request, 'Image upload failed. Please use a valid image file.')
+            return redirect(f"{reverse('notebooks')}?notebook={page.notebook_id}&page={page.id}")
+
     block.page = page
     latest_block = NotebookBlock.objects.filter(page=page).order_by('-order').first()
     block.order = (latest_block.order + 1) if latest_block else 0

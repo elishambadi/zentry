@@ -10,6 +10,14 @@ services:
       - db
     environment:
       - DB_HOST=db
+      - USE_S3=${USE_S3:-True}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-minioadmin}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-zentry-media}
+      - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME:-us-east-1}
+      - AWS_S3_ENDPOINT_URL=${AWS_S3_ENDPOINT_URL:-http://host.docker.internal:9000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./staticfiles:/app/staticfiles
 
@@ -22,5 +30,34 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  minio:
+    image: minio/minio:latest
+    profiles: ["local-minio"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    volumes:
+      - minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    profiles: ["local-minio"]
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until /usr/bin/mc alias set zentry http://minio:9000 minioadmin minioadmin; do
+        echo 'waiting for minio...' && sleep 2;
+      done;
+      /usr/bin/mc mb -p zentry/zentry-media || true;
+      /usr/bin/mc anonymous set download zentry/zentry-media || true;
+      exit 0;
+      "
+
 volumes:
   postgres_data:
+  minio_data:

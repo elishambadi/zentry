@@ -380,7 +380,9 @@
                   <div class="published-body">{{ block.body|safe }}</div>
                 {% endif %}
 
-                {% if block.image_url %}
+                {% if block.image %}
+                  <img src="{{ block.image.url }}" alt="Notebook image" class="note-block-image">
+                {% elif block.image_url %}
                   <img src="{{ block.image_url }}" alt="Notebook image" class="note-block-image">
                 {% endif %}
 
