@@ -2651,6 +2651,21 @@ def notebooks_workdesk(request):
         .order_by('order', 'created_at')
     )
 
+    # Get previous and next pages for navigation
+    current_page_index = None
+    for i, page in enumerate(pages):
+        if page.id == selected_page.id:
+            current_page_index = i
+            break
+    
+    prev_page = None
+    next_page = None
+    if current_page_index is not None:
+        if current_page_index > 0:
+            prev_page = pages[current_page_index - 1]
+        if current_page_index < len(pages) - 1:
+            next_page = pages[current_page_index + 1]
+
     if request.method == 'POST' and request.POST.get('intent') == 'create_notebook':
         notebook_form = NotebookForm(request.POST)
         if notebook_form.is_valid():
@@ -2675,6 +2690,8 @@ def notebooks_workdesk(request):
         'selected_notebook': selected_notebook,
         'selected_page': selected_page,
         'pages': pages,
+        'prev_page': prev_page,
+        'next_page': next_page,
         'blocks': blocks,
         'today': today,
         'notebook_form': notebook_form,
