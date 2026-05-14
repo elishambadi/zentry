@@ -2784,3 +2784,65 @@ def notebook_print(request, notebook_id):
         'title_page_svg': title_page_svg,
     })
 
+
+# Public Notebooks (Reading & Publishing)
+
+def public_notebooks(request):
+    """Homepage listing all publicly published notebook pages."""
+    public_pages = (
+        NotebookPage.objects.filter(is_public=True)
+        .select_related('notebook__user')
+        .prefetch_related('blocks')
+        .order_by('-published_at')
+    )
+    
+    context = {
+        'public_pages': public_pages,
+    }
+    return render(request, 'core/public_notebooks.html', context)
+
+
+def public_notebook_page(request, page_id, slug=''):
+    """Read a single publicly published notebook page."""
+    page = get_object_or_404(NotebookPage, id=page_id, is_public=True)
+    blocks = page.blocks.all()
+    
+    block_previews = {}
+    for block in blocks:
+        if block.link_url:
+            block_previews[block.id] = build_simple_link_preview(block.link_url)
+    
+    context = {
+        'page': page,
+        'notebook': page.notebook,
+        'blocks': blocks,
+        'block_previews': block_previews,
+    }
+    return render(request, 'core/public_notebook_page.html', context)
+
+
+@login_required
+@require_POST
+def publish_notebook_page(request, page_id):
+    """Publish a notebook page, making it public."""
+    page = get_object_or_404(NotebookPage, id=page_id, notebook__user=request.user)
+    
+    page.is_public = True
+    page.published_at = timezone.now()
+    page.save(update_fields=['is_public', 'published_at'])
+    
+    return JsonResponse({'success': True, 'published_at': page.published_at.isoformat()})
+
+
+@login_required
+@require_POST
+def unpublish_notebook_page(request, page_id):
+    """Unpublish a notebook page, making it private."""
+    page = get_object_or_404(NotebookPage, id=page_id, notebook__user=request.user)
+    
+    page.is_public = False
+    page.published_at = None
+    page.save(update_fields=['is_public', 'published_at'])
+    
+    return JsonResponse({'success': True})
+

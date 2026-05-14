@@ -140,6 +140,12 @@
     </div>
 
     <div class="flex items-center gap-1.5">
+      {% if selected_page.is_public %}
+      <div class="text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-md">Published</div>
+      {% endif %}
+      <button id="publish-btn" type="button" title="{% if selected_page.is_public %}Unpublish{% else %}Publish as article{% endif %}" class="h-9 px-3 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-50 text-sm font-medium">
+        {% if selected_page.is_public %}Unpublish{% else %}Publish{% endif %}
+      </button>
       <button id="switch-book-btn" type="button" title="Switch notebook" class="h-9 w-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-50">📚</button>
       <button id="switch-page-btn" type="button" title="Switch page" class="h-9 w-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-50">📄</button>
       <button id="fullscreen-btn" type="button" title="Maximize writing" class="h-9 w-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-50">⛶</button>
@@ -455,5 +461,52 @@
       openWriteModal();
     }, 100);
   }
+
+  // Publish/Unpublish button
+  const publishBtn = document.getElementById('publish-btn');
+  if (publishBtn) {
+    publishBtn.addEventListener('click', async function() {
+      const isPublished = this.textContent.includes('Unpublish');
+      const url = isPublished
+        ? '{% url "unpublish_notebook_page" selected_page.id %}'
+        : '{% url "publish_notebook_page" selected_page.id %}';
+
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            // Toggle button text and status badge
+            const statusBadge = document.querySelector('.bg-green-50');
+            if (!isPublished) {
+              // Just published
+              publishBtn.textContent = 'Unpublish';
+              publishBtn.title = 'Unpublish';
+              if (!statusBadge) {
+                const badge = document.createElement('div');
+                badge.className = 'text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-md';
+                badge.textContent = 'Published';
+                publishBtn.parentElement.insertBefore(badge, publishBtn);
+              }
+            } else {
+              // Just unpublished
+              publishBtn.textContent = 'Publish';
+              publishBtn.title = 'Publish as article';
+              if (statusBadge) statusBadge.remove();
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error toggling publish status:', error);
+      }
+    });
+  }
+
 </script>
 {% endblock %}

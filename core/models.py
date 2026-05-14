@@ -303,6 +303,8 @@ class NotebookPage(models.Model):
     page_date = models.DateField(default=date.today)
     title = models.CharField(max_length=200, blank=True)
     order = models.PositiveIntegerField(default=0)
+    is_public = models.BooleanField(default=False)
+    published_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

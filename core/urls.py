@@ -51,6 +51,13 @@ urlpatterns = [
     path('notebooks/page/<int:page_id>/block/create/', views.notebook_block_create, name='notebook_block_create'),
     path('notebooks/block/<int:block_id>/comment/', views.notebook_comment_create, name='notebook_comment_create'),
     path('notebooks/<int:notebook_id>/print/', views.notebook_print, name='notebook_print'),
+    path('notebooks/page/<int:page_id>/publish/', views.publish_notebook_page, name='publish_notebook_page'),
+    path('notebooks/page/<int:page_id>/unpublish/', views.unpublish_notebook_page, name='unpublish_notebook_page'),
+
+    # Public Notebooks
+    path('read/', views.public_notebooks, name='public_notebooks'),
+    path('read/page/<int:page_id>/', views.public_notebook_page, name='public_notebook_page'),
+    path('read/page/<int:page_id>/<slug:slug>/', views.public_notebook_page, name='public_notebook_page_slug'),
 
     # Ideas board
     path('ideas/', views.ideas_board, name='ideas_board'),
