@@ -74,9 +74,10 @@
         </div>
 
         <!-- Preview -->
-        {% if page.blocks.first %}
+        {% with blocks=page.blocks.all %}
+        {% if blocks %}
         <div class="space-y-4 mb-6">
-          {% for block in page.blocks|slice:":3" %}
+          {% for block in blocks|slice:":3" %}
           <div class="text-gray-700 leading-relaxed">
             {% if block.title %}
             <h3 class="font-semibold text-gray-900 mb-2">{{ block.emoji|default:'' }} {{ block.title }}</h3>
@@ -88,11 +89,12 @@
             {% endif %}
           </div>
           {% endfor %}
-          {% if page.blocks|length > 3 %}
-          <p class="text-sm text-gray-500 italic">+ {{ page.blocks|length|add:"-3" }} more thought{{ page.blocks|length|add:"-3"|pluralize }}</p>
+          {% if blocks|length > 3 %}
+          <p class="text-sm text-gray-500 italic">+ {{ blocks|length|add:"-3" }} more thought{{ blocks|length|add:"-3"|pluralize }}</p>
           {% endif %}
         </div>
         {% endif %}
+        {% endwith %}
 
         <!-- CTA -->
         <div class="pt-4">
