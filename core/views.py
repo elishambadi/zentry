@@ -2846,7 +2846,19 @@ def publish_notebook_page(request, page_id):
     
     page.is_public = True
     page.published_at = timezone.now()
-    page.save(update_fields=['is_public', 'published_at'])
+    
+    # Generate slug if not exists
+    if not page.slug:
+        from django.utils.text import slugify
+        base_slug = slugify(page.display_title[:50])
+        slug = base_slug
+        counter = 1
+        while NotebookPage.objects.filter(slug=slug).exclude(id=page.id).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        page.slug = slug
+    
+    page.save(update_fields=['is_public', 'published_at', 'slug'])
     
     return JsonResponse({'success': True, 'published_at': page.published_at.isoformat()})
 
@@ -2859,7 +2871,8 @@ def unpublish_notebook_page(request, page_id):
     
     page.is_public = False
     page.published_at = None
-    page.save(update_fields=['is_public', 'published_at'])
+    page.slug = None  # Clear slug on unpublish
+    page.save(update_fields=['is_public', 'published_at', 'slug'])
     
     return JsonResponse({'success': True})
 

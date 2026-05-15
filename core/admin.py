@@ -13,6 +13,10 @@ from .models import (
     UserPreference,
     ZenChatSession,
     ZenChatMessage,
+    Notebook,
+    NotebookPage,
+    NotebookBlock,
+    NotebookComment,
 )
 
 
@@ -129,3 +133,50 @@ class ZenChatMessageAdmin(admin.ModelAdmin):
     list_display = ['session', 'role', 'created_at']
     list_filter = ['role', 'created_at']
     search_fields = ['content', 'session__title', 'session__user__username']
+
+
+class NotebookBlockInline(admin.TabularInline):
+    model = NotebookBlock
+    extra = 0
+    readonly_fields = ['created_at', 'updated_at']
+
+
+class NotebookCommentInline(admin.TabularInline):
+    model = NotebookComment
+    extra = 0
+    readonly_fields = ['created_at']
+
+
+@admin.register(Notebook)
+class NotebookAdmin(admin.ModelAdmin):
+    list_display = ['title', 'user', 'created_at', 'updated_at']
+    list_filter = ['created_at', 'updated_at']
+    search_fields = ['title', 'description', 'user__username']
+
+
+@admin.register(NotebookPage)
+class NotebookPageAdmin(admin.ModelAdmin):
+    list_display = ['display_title', 'notebook', 'page_date', 'is_public', 'published_at', 'slug', 'created_at']
+    list_filter = ['is_public', 'page_date', 'created_at', 'published_at']
+    search_fields = ['title', 'notebook__title', 'notebook__user__username', 'slug']
+    date_hierarchy = 'page_date'
+    inlines = [NotebookBlockInline]
+
+
+@admin.register(NotebookBlock)
+class NotebookBlockAdmin(admin.ModelAdmin):
+    list_display = ['get_page_title', 'title', 'created_at', 'updated_at']
+    list_filter = ['created_at', 'updated_at']
+    search_fields = ['title', 'body', 'page__title', 'page__notebook__title', 'page__notebook__user__username']
+    inlines = [NotebookCommentInline]
+    
+    def get_page_title(self, obj):
+        return obj.page.display_title
+    get_page_title.short_description = 'Page'
+
+
+@admin.register(NotebookComment)
+class NotebookCommentAdmin(admin.ModelAdmin):
+    list_display = ['user', 'block', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['content', 'user__username', 'block__title', 'block__page__title']

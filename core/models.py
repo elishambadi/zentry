@@ -320,15 +320,7 @@ class NotebookPage(models.Model):
         return self.title.strip() or f"{self.page_date.strftime('%d %b %Y')}"
     
     def save(self, *args, **kwargs):
-        if self.is_public and not self.slug:
-            from django.utils.text import slugify
-            base_slug = slugify(self.display_title[:50])
-            slug = base_slug
-            counter = 1
-            while NotebookPage.objects.filter(slug=slug).exclude(id=self.id).exists():
-                slug = f"{base_slug}-{counter}"
-                counter += 1
-            self.slug = slug
+        # Slug generation is now handled in the publish/unpublish views
         super().save(*args, **kwargs)
 
 
