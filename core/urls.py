@@ -56,8 +56,7 @@ urlpatterns = [
 
     # Public Notebooks
     path('read/', views.public_notebooks, name='public_notebooks'),
-    path('read/page/<int:page_id>/', views.public_notebook_page, name='public_notebook_page'),
-    path('read/page/<int:page_id>/<slug:slug>/', views.public_notebook_page, name='public_notebook_page_slug'),
+    path('read/<slug:slug>/', views.public_notebook_page, name='public_notebook_page'),
 
     # Ideas board
     path('ideas/', views.ideas_board, name='ideas_board'),

@@ -302,6 +302,7 @@ class NotebookPage(models.Model):
     notebook = models.ForeignKey(Notebook, on_delete=models.CASCADE, related_name='pages')
     page_date = models.DateField(default=date.today)
     title = models.CharField(max_length=200, blank=True)
+    slug = models.SlugField(max_length=200, blank=True, null=True, unique=True)
     order = models.PositiveIntegerField(default=0)
     is_public = models.BooleanField(default=False)
     published_at = models.DateTimeField(null=True, blank=True)
@@ -317,6 +318,18 @@ class NotebookPage(models.Model):
     @property
     def display_title(self):
         return self.title.strip() or f"{self.page_date.strftime('%d %b %Y')}"
+    
+    def save(self, *args, **kwargs):
+        if self.is_public and not self.slug:
+            from django.utils.text import slugify
+            base_slug = slugify(self.display_title[:50])
+            slug = base_slug
+            counter = 1
+            while NotebookPage.objects.filter(slug=slug).exclude(id=self.id).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
 
 
 class NotebookBlock(models.Model):

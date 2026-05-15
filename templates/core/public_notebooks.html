@@ -54,7 +54,7 @@
         <!-- Header -->
         <div class="flex items-start justify-between gap-4 mb-4">
           <div class="flex-1">
-            <a href="{% url 'public_notebook_page' page.id %}" class="group/link">
+            <a href="{% url 'public_notebook_page' page.slug %}" class="group/link">
               <h2 class="text-2xl font-semibold text-gray-900 group-hover/link:text-indigo-600 transition">
                 {{ page.display_title }}
               </h2>
@@ -99,7 +99,7 @@
 
         <!-- CTA -->
         <div class="pt-4">
-          <a href="{% url 'public_notebook_page' page.id %}" class="inline-flex items-center text-indigo-600 hover:text-indigo-700 font-medium text-sm">
+          <a href="{% url 'public_notebook_page' page.slug %}" class="inline-flex items-center text-indigo-600 hover:text-indigo-700 font-medium text-sm">
             Read full article →
           </a>
         </div>

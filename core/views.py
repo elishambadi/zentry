@@ -2819,9 +2819,9 @@ def public_notebooks(request):
     return render(request, 'core/public_notebooks.html', context)
 
 
-def public_notebook_page(request, page_id, slug=''):
+def public_notebook_page(request, slug):
     """Read a single publicly published notebook page."""
-    page = get_object_or_404(NotebookPage, id=page_id, is_public=True)
+    page = get_object_or_404(NotebookPage, slug=slug, is_public=True)
     blocks = page.blocks.all()
     
     block_previews = {}
