@@ -1,0 +1,15 @@
+{% comment %}
+Reusable card container.
+Usage: {% include "core/_components/card.html" with title="My Tasks" %}
+  title: optional heading
+  extra: optional extra classes
+{% endcomment %}
+<div class="bg-white border border-gray-200 rounded-xl shadow-card {{ extra }}">
+  {% if title %}
+  <div class="px-5 pt-4 pb-3 {% if title_border %}border-b border-gray-100{% endif %}">
+    <h2 class="text-heading font-semibold text-gray-900">{{ title }}</h2>
+    {% if subtitle %}<p class="text-sm text-gray-500 mt-0.5">{{ subtitle }}</p>{% endif %}
+  </div>
+  {% endif %}
+  <div class="{% if title %}px-5 py-4{% endif %}">{{ slot|safe }}</div>
+</div>

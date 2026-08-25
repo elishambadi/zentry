@@ -37,6 +37,8 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
         </svg>
       </a>
+      <a href="?year={{ today.year }}&month={{ today.month }}&view=month"
+         class="text-xs bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium px-3 py-1.5 rounded-lg transition-colors">Today</a>
     </div>
     {% endif %}
 
@@ -103,21 +105,6 @@
             {% endwith %}
 
             {% if cell.task_lines %}
-            <div class="mt-1 space-y-0.5">
-              {% for task in cell.task_lines|slice:":4" %}
-              {% if task.recurring %}
-              <div class="h-1.5 rounded-full bg-indigo-300 opacity-70" style="border: 1px dashed #6366f1; background: transparent;"></div>
-              {% else %}
-              <div class="h-1.5 rounded-full {% if task.completed %}bg-gray-300{% else %}bg-primary-500{% endif %}"></div>
-              {% endif %}
-              {% endfor %}
-              {% if cell.task_lines|length > 4 %}
-              <div class="text-[10px] text-gray-400">+{{ cell.task_lines|length|add:"-4" }} more</div>
-              {% endif %}
-            </div>
-            {% endif %}
-
-            {% if cell.task_lines %}
             <div class="pointer-events-none absolute left-1 right-1 top-7 z-20 hidden group-hover:block rounded-md border border-gray-200 bg-white/95 p-2 shadow-lg backdrop-blur-sm">
               <p class="text-[10px] font-semibold text-gray-600 mb-1">Tasks for {{ month_name }} {{ cell.day }}</p>
               <div class="space-y-1">
@@ -152,11 +139,7 @@
   <div class="mt-4 flex items-center space-x-6 text-sm text-gray-600">
     <div class="flex items-center space-x-2">
       <div class="w-3 h-1 bg-primary-500 rounded-full"></div>
-      <span>Task</span>
-    </div>
-    <div class="flex items-center space-x-2">
-      <div class="w-3 h-1 rounded-full border border-dashed border-indigo-400"></div>
-      <span>Recurring</span>
+      <span>Task completion</span>
     </div>
     <div class="flex items-center space-x-2">
       <div class="w-2 h-2 bg-green-400 rounded-full"></div>

@@ -124,21 +124,18 @@
 
             <div class="space-y-2">
                 {% for task in tasks %}
-                <div class="group rounded-lg border border-gray-200 p-3 {% if task.completed %}bg-gray-50{% else %}bg-white{% endif %}">
+                <div data-task-row="{{ task.id }}" class="group rounded-lg border border-gray-200 p-3 {% if task.completed %}bg-gray-50{% else %}bg-white{% endif %}">
                     <div class="flex items-center gap-3">
-                        <input type="checkbox" {% if task.completed %}checked{% endif %} onchange="toggleTask({{ task.id }})" class="h-4 w-4 rounded border-gray-300 text-primary-600">
+                        <input type="checkbox" {% if task.completed %}checked{% endif %} onclick="toggleTask({{ task.id }}, this)" class="h-4 w-4 rounded border-gray-300 text-primary-600 cursor-pointer">
                         <div class="flex-1 min-w-0">
-                            <p class="truncate {% if task.completed %}line-through text-gray-400{% else %}text-gray-900{% endif %}">{{ task.title }}</p>
+                            <p class="truncate {% if task.completed %}line-through text-gray-400{% else %}text-gray-900{% endif %}">
+                                {{ task.title }}
+                                {% if task.is_rest %}<span class="ml-1 text-[10px] font-medium text-emerald-600" title="Rest task">· rest</span>{% endif %}
+                                {% if task.recurrence_source %}<span class="ml-1 text-[10px] font-medium text-indigo-600" title="Recurring">↻</span>{% endif %}
+                            </p>
                             <div class="mt-1 flex flex-wrap gap-1 text-[11px]">
                                 <span class="px-2 py-0.5 rounded-full {{ task.get_tag_color }}">{{ task.get_tag_display }}</span>
                                 <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ task.get_priority_display }}</span>
-                                {% if task.is_rest %}<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Rest</span>{% endif %}
-                                {% if task.recurrence_source %}
-                                <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">↻ Recurring</span>
-                                {% if task.recurrence_source.recurrence_end_date %}
-                                <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">ends {{ task.recurrence_source.recurrence_end_date|date:"M j" }}</span>
-                                {% endif %}
-                                {% endif %}
                             </div>
                         </div>
                         <div class="flex items-center gap-1 opacity-70 group-hover:opacity-100">
@@ -276,35 +273,63 @@ function syncRecurrenceUI() {
 }
 
 // ── Task actions ─────────────────────────────────────────────
-function toggleTask(taskId) {
-    fetch(`/task/toggle/${taskId}/`, { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' } })
-    .then(() => location.reload());
+function toggleTask(taskId, cb) {
+    const card = cb ? cb.closest('.group') : null;
+    // Optimistic update
+    if (card) {
+        const title = card.querySelector('p.truncate');
+        const completed = !cb.checked;
+        title.classList.toggle('line-through', completed);
+        title.classList.toggle('text-gray-400', completed);
+        title.classList.toggle('text-gray-900', !completed);
+        card.classList.toggle('bg-gray-50', completed);
+        card.classList.toggle('bg-white', !completed);
+    }
+    postJson(`/task/toggle/${taskId}/`)
+    .then(({ data }) => {
+        if (data.completed) showToast('Task completed ✓', 'success');
+        else showToast('Task marked incomplete', 'info');
+    })
+    .catch(() => { if (card) location.reload(); });
 }
 
 function deleteTask(taskId) {
-    if (!confirm('Delete this task?')) return;
-    fetch(`/task/delete/${taskId}/`, { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' } })
-    .then(response => response.json())
-    .then(data => { if (data.success) location.reload(); });
+    confirmAction('Delete this task?', () => {
+        postJson(`/task/delete/${taskId}/`)
+        .then(({ data }) => {
+            if (data.success) {
+                showToast('Task deleted', 'success');
+                const el = document.querySelector(`[data-task-row="${taskId}"]`);
+                if (el) el.remove();
+                else location.reload();
+            }
+        });
+    });
 }
 
 function deleteTaskSeries(taskId) {
-    if (!confirm('Delete ALL recurrences of this task? This removes every occurrence of the whole series.')) return;
-    fetch(`/task/delete-series/${taskId}/`, { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' } })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) location.reload();
-        else alert(data.error || 'Could not delete the series.');
+    confirmAction('Delete ALL recurrences of this task? This removes every occurrence of the whole series.', () => {
+        postJson(`/task/delete-series/${taskId}/`)
+        .then(({ data }) => {
+            if (data.success) {
+                showToast('Recurring series deleted', 'success');
+                location.reload();
+            } else alert(data.error || 'Could not delete the series.');
+        });
     });
 }
 
 function carryTask(taskId) {
-    if (!confirm('Carry this task to next day?')) return;
-    fetch(`/task/carry/${taskId}/`, { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' } })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) location.reload();
-        else alert(data.error || 'Could not carry task forward');
+    confirmAction('Carry this task to next day?', () => {
+        postJson(`/task/carry/${taskId}/`)
+        .then(({ data }) => {
+            if (data.success) {
+                showToast('Task carried to next day', 'success');
+                const el = document.querySelector(`[data-task-row="${taskId}"]`);
+                if (el) el.remove();
+                else location.reload();
+            } else alert(data.error || 'Could not carry task forward');
+        });
     });
 }
 
@@ -315,7 +340,7 @@ function addSubtask(taskId) {
     if (!title) return;
     fetch(`/task/${taskId}/subtask/add/`, {
         method: 'POST',
-        headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `title=${encodeURIComponent(title)}`,
     })
     .then(r => r.json())
@@ -339,9 +364,8 @@ function addSubtask(taskId) {
 }
 
 function toggleSubtask(subtaskId) {
-    fetch(`/subtask/toggle/${subtaskId}/`, { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' } })
-    .then(r => r.json())
-    .then(data => {
+    postJson(`/subtask/toggle/${subtaskId}/`)
+    .then(({ data }) => {
         const label = document.getElementById(`subtask-label-${subtaskId}`);
         const cb = document.querySelector(`#subtask-row-${subtaskId} input[type=checkbox]`);
         if (data.completed) {
@@ -357,9 +381,8 @@ function toggleSubtask(subtaskId) {
 }
 
 function deleteSubtask(subtaskId, taskId) {
-    fetch(`/subtask/delete/${subtaskId}/`, { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' } })
-    .then(r => r.json())
-    .then(data => {
+    postJson(`/subtask/delete/${subtaskId}/`)
+    .then(({ data }) => {
         if (data.success) {
             const row = document.getElementById(`subtask-row-${subtaskId}`);
             if (row) row.remove();

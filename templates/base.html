@@ -18,13 +18,70 @@
                         'sans': ['Inter', 'system-ui', 'sans-serif'],
                     },
                     colors: {
+                        /* Single identity accent (calm green — brand leans eco) */
                         'primary': {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                        },
+                        /* Semantic palette — never use raw hues for actions */
+                        'success': {
                             50: '#f0fdf4',
                             500: '#22c55e',
                             600: '#16a34a',
                             700: '#15803d',
-                        }
-                    }
+                        },
+                        'warning': {
+                            50: '#fffbeb',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        },
+                        'danger': {
+                            50: '#fef2f2',
+                            500: '#ef4444',
+                            600: '#dc2626',
+                            700: '#b91c1c',
+                        },
+                        'info': {
+                            50: '#eef2ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        },
+                        'rest': {
+                            50: '#ecfdf5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        },
+                    },
+                    /* 6-step type scale */
+                    fontSize: {
+                        'display': ['2.5rem', { lineHeight: '1.1', letterSpacing: '-0.02em' }],
+                        'title': ['1.875rem', { lineHeight: '1.2', letterSpacing: '-0.01em' }],
+                        'heading': ['1.25rem', { lineHeight: '1.35' }],
+                        'body': ['0.9375rem', { lineHeight: '1.6' }],
+                        'caption': ['0.8125rem', { lineHeight: '1.5' }],
+                        'micro': ['0.75rem', { lineHeight: '1.4' }],
+                    },
+                    /* Elevation tokens */
+                    boxShadow: {
+                        'card': '0 1px 2px rgba(16, 24, 40, 0.05)',
+                        'card-hover': '0 2px 8px rgba(16, 24, 40, 0.08)',
+                        'floating': '0 8px 24px rgba(16, 24, 40, 0.12)',
+                        'overlay': '0 16px 48px rgba(16, 24, 40, 0.2)',
+                    },
+                    /* Radius tokens */
+                    borderRadius: {
+                        'sm-c': '0.375rem',
+                        'md-c': '0.5rem',
+                        'lg-c': '0.75rem',
+                        'xl-c': '1rem',
+                    },
                 }
             }
         }
@@ -37,6 +94,23 @@
     
     <!-- Custom styles -->
     <style>
+        /* Consistent focus-visible ring (accessibility) */
+        :focus-visible {
+            outline: 2px solid #16a34a;
+            outline-offset: 2px;
+            border-radius: 0.25rem;
+        }
+
+        /* Honor reduced-motion preferences globally */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
         .fade-in {
             animation: fadeIn 0.3s ease-in-out;
         }
@@ -81,26 +155,55 @@
         <aside class="hidden md:fixed md:inset-y-0 md:left-0 md:flex md:w-16 bg-white border-r border-gray-200 py-4 px-2 flex-col items-center">
             <a href="{% url 'dashboard' %}" class="h-9 w-9 rounded-lg bg-gray-900 text-white flex items-center justify-center text-xs font-semibold mb-5" title="Dashboard">Z</a>
 
-            <nav class="space-y-2 w-full">
-                <a href="{% url 'dashboard' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Dashboard">🏠</a>
-                <a href="{% url 'pomodoro' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Pomodoro">🍅</a>
-                <a href="{% url 'calendar' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Calendar">🗓️</a>
-                <a href="{% url 'notebooks' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Notebooks">📓</a>
-                <a href="{% url 'ideas_board' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Ideas">💡</a>
-                <a href="{% url 'goals_list' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Goals">🎯</a>
-                <a href="{% url 'task_chat' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Task Chat">💬</a>
-                <a href="{% url 'weekly_review' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Weekly Review">📅</a>
-                <a href="{% url 'monthly_review' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Monthly Review">📊</a>
-                <a href="{% url 'preferences' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Preferences">⚙️</a>
+            <nav class="flex-1 flex flex-col w-full">
+                {# ── Daily use ──────────────────────────────────────────── #}
+                <div class="space-y-2">
+                    <a href="{% url 'dashboard' %}" class="sidebar-link h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Today" aria-label="Today">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1V9.5z"/></svg>
+                    </a>
+                    <a href="{% url 'pomodoro' %}" class="sidebar-link h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Pomodoro" aria-label="Pomodoro Focus">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>
+                    </a>
+                    <a href="{% url 'calendar' %}" class="sidebar-link h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Calendar" aria-label="Calendar">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                    </a>
+                    <a href="{% url 'notebooks' %}" class="sidebar-link h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Notebooks" aria-label="Notebooks">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4a2 2 0 0 0-2-2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>
+                    </a>
+                </div>
+
+                {# ── Plan & Reflect ──────────────────────────────────────── #}
+                <div class="mt-2 pt-2 border-t border-gray-100 space-y-2">
+                    <a href="{% url 'goals_list' %}" class="sidebar-link h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Goals" aria-label="Goals">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
+                    </a>
+                    <a href="{% url 'ideas_board' %}" class="sidebar-link h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Ideas" aria-label="Ideas">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+                    </a>
+                    <a href="{% url 'task_chat' %}" class="sidebar-link h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Task Chat" aria-label="Task Chat">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.9-.9L3 21l1.9-5.6A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3a8.38 8.38 0 0 1 8.5 8.5z"/></svg>
+                    </a>
+                    <a href="{% url 'weekly_review' %}" class="sidebar-link h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Weekly Review" aria-label="Weekly Review">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/><path d="M14 2v6h6M14 8l7-6"/></svg>
+                    </a>
+                    <a href="{% url 'monthly_review' %}" class="sidebar-link h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Monthly Review" aria-label="Monthly Review">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg>
+                    </a>
+                </div>
             </nav>
 
-            <button @click="toggleZenAI()" class="mt-4 h-10 w-10 rounded-lg bg-primary-500 hover:bg-primary-600 text-white text-base" title="Open ZenAI">
-                ✨
+            <button @click="toggleZenAI()" class="mt-3 h-10 w-10 rounded-lg bg-primary-500 hover:bg-primary-600 text-white text-base flex items-center justify-center" title="Open ZenAI" aria-label="Open ZenAI">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/></svg>
             </button>
 
             <div class="mt-auto pt-4 border-t border-gray-100 w-full flex flex-col items-center gap-2">
-                <span class="text-[10px] text-gray-400" title="{{ user.first_name|default:user.username }}">👤</span>
-                <a href="{% url 'account_logout' %}" class="h-8 w-8 rounded-md flex items-center justify-center text-gray-500 hover:bg-gray-100" title="Logout">↩</a>
+                <a href="{% url 'preferences' %}" class="sidebar-link h-8 w-8 rounded-md flex items-center justify-center text-gray-500 hover:bg-gray-100" title="Preferences" aria-label="Preferences">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </a>
+                <span class="text-[10px] text-gray-400" title="{{ user.first_name|default:user.username }}" aria-label="Account">👤</span>
+                <a href="{% url 'account_logout' %}" class="h-8 w-8 rounded-md flex items-center justify-center text-gray-500 hover:bg-gray-100" title="Logout" aria-label="Logout">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                </a>
             </div>
         </aside>
 
@@ -110,53 +213,49 @@
              id="mobile-nav">
             <a href="{% url 'dashboard' %}"
                     class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
-                <span class="text-xl leading-none">🏠</span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1V9.5z"/></svg>
                 <span class="text-[10px] font-medium">Home</span>
             </a>
             <a href="{% url 'pomodoro' %}"
                     class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
-                <span class="text-xl leading-none">🍅</span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>
                 <span class="text-[10px] font-medium">Focus</span>
             </a>
             <a href="{% url 'calendar' %}"
                     class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
-                <span class="text-xl leading-none">🗓️</span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                 <span class="text-[10px] font-medium">Calendar</span>
-            </a>
-                <a href="{% url 'notebooks' %}"
-                    class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
-                     <span class="text-xl leading-none">📓</span>
-                     <span class="text-[10px] font-medium">Notebook</span>
-                </a>
-            <a href="{% url 'ideas_board' %}"
-                    class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
-                <span class="text-xl leading-none">💡</span>
-                <span class="text-[10px] font-medium">Ideas</span>
             </a>
             <a href="{% url 'goals_list' %}"
                     class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
-                <span class="text-xl leading-none">🎯</span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
                 <span class="text-[10px] font-medium">Goals</span>
             </a>
             <a href="{% url 'task_chat' %}"
                     class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
-                <span class="text-xl leading-none">💬</span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.9-.9L3 21l1.9-5.6A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3a8.38 8.38 0 0 1 8.5 8.5z"/></svg>
                 <span class="text-[10px] font-medium">Chat</span>
             </a>
             <button @click="toggleZenAI()"
                     class="min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
-                <span class="text-xl leading-none">✨</span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/></svg>
                 <span class="text-[10px] font-medium">ZenAI</span>
             </button>
         </nav>
         <script>
-          // Highlight the active bottom nav link
+          // Highlight the active bottom nav link and desktop sidebar link
           (function() {
             const path = window.location.pathname;
             document.querySelectorAll('#mobile-nav .mobile-nav-link').forEach(function(a) {
               if (a.getAttribute('href') && path.startsWith(a.getAttribute('href').replace(/\/$/, '').split('?')[0])) {
                 a.classList.remove('text-gray-400');
                 a.classList.add('text-gray-900', 'font-semibold');
+              }
+            });
+            document.querySelectorAll('.sidebar-link').forEach(function(a) {
+              if (a.getAttribute('href') && path.startsWith(a.getAttribute('href').replace(/\/$/, '').split('?')[0])) {
+                a.classList.add('bg-primary-50', 'text-primary-700');
+                a.classList.remove('text-gray-600');
               }
             });
           })();
@@ -537,7 +636,37 @@
     {% else %}
     </main>
     {% endif %}
-    
+
+    <!-- Toast notifications (shared across all views) -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 items-end" aria-live="polite"></div>
+
+    <script>
+        function showToast(message, type) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const colors = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                warning: 'bg-amber-500',
+                info: 'bg-gray-800',
+            };
+            const toast = document.createElement('div');
+            toast.className = (colors[type] || colors.info) + ' text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 fade-in max-w-xs';
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.transition = 'opacity 0.3s, transform 0.3s';
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(8px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function confirmAction(message, onConfirm) {
+            if (window.confirm(message)) onConfirm();
+        }
+    </script>
+
     <!-- JavaScript for HTMX-like functionality -->
     <script>
         function getCookie(name) {
@@ -545,6 +674,26 @@
                 .split('; ')
                 .find(row => row.startsWith(name + '='));
             return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : null;
+        }
+
+        // Shared helpers — use everywhere instead of re-implementing per-view.
+        function getCsrf() {
+            return getCookie('csrftoken') || '';
+        }
+
+        // POST JSON with CSRF header; returns parsed JSON.
+        async function postJson(url, body) {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrf(),
+                    'Content-Type': 'application/json',
+                },
+                body: body ? JSON.stringify(body) : undefined,
+            });
+            let data = {};
+            try { data = await res.json(); } catch {}
+            return { ok: res.ok, status: res.status, data };
         }
 
         function zenaiApp() {

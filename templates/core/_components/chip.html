@@ -1,0 +1,17 @@
+{% comment %}
+Reusable chip/badge.
+Usage: {% include "core/_components/chip.html" with label="Work" tone="blue" %}
+Tones: blue | green | purple | pink | yellow | gray | red | orange | indigo | emerald
+{% endcomment %}
+<span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium
+  {% if tone == 'blue' %}bg-blue-50 text-blue-700
+  {% elif tone == 'green' %}bg-green-50 text-green-700
+  {% elif tone == 'purple' %}bg-purple-50 text-purple-700
+  {% elif tone == 'pink' %}bg-pink-50 text-pink-700
+  {% elif tone == 'yellow' %}bg-yellow-50 text-yellow-700
+  {% elif tone == 'red' %}bg-red-50 text-red-700
+  {% elif tone == 'orange' %}bg-orange-50 text-orange-700
+  {% elif tone == 'indigo' %}bg-indigo-50 text-indigo-700
+  {% elif tone == 'emerald' %}bg-emerald-50 text-emerald-700
+  {% else %}bg-gray-100 text-gray-600{% endif %}
+  {{ extra }}">{{ label }}</span>

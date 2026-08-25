@@ -2831,10 +2831,20 @@ def goals_list(request):
             ]
         })
 
+    def with_progress(goal_qs):
+        goals = list(goal_qs.prefetch_related('goal_tasks__task'))
+        for g in goals:
+            tasks = [tg.task for tg in g.goal_tasks.all() if tg.task_id]
+            total = len(tasks)
+            done = sum(1 for t in tasks if t.completed)
+            g.progress = {'total': total, 'done': done,
+                          'rate': int((done / total) * 100) if total else 0}
+        return goals
+
     context = {
         'form': form,
-        'short_term_goals': short_term_goals,
-        'long_term_goals': long_term_goals,
+        'short_term_goals': with_progress(short_term_goals),
+        'long_term_goals': with_progress(long_term_goals),
         'completed_goals': completed_goals,
     }
     return render(request, 'core/goals_list.html', context)

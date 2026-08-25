@@ -1,0 +1,20 @@
+{% comment %}
+Reusable progress bar.
+Usage: {% include "core/_components/progress.html" with rate=50 label="Progress" done=2 total=4 tone="green" %}
+Tones: green | indigo | rest
+{% endcomment %}
+{% if rate is not None %}
+<div class="w-full">
+  {% if label or done is not None %}
+  <div class="flex items-center justify-between text-xs mb-1">
+    {% if label %}<span class="text-gray-500 font-medium">{{ label }}</span>{% endif %}
+    {% if done is not None and total is not None %}
+    <span class="text-gray-600">{{ done }}/{{ total }}{% if rate is not None %} · {{ rate }}%{% endif %}</span>
+    {% elif rate is not None %}<span class="text-gray-600">{{ rate }}%</span>{% endif %}
+  </div>
+  {% endif %}
+  <div class="w-full bg-gray-200 rounded-full h-2">
+    <div class="{% if tone == 'indigo' %}bg-info-500{% elif tone == 'rest' %}bg-rest-500{% else %}bg-primary-500{% endif %} h-2 rounded-full transition-all duration-500" style="width: {{ rate }}%"></div>
+  </div>
+</div>
+{% endif %}
