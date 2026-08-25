@@ -72,33 +72,62 @@
     <div class="flex-1 overflow-y-auto py-2" id="taskList">
       {% if tasks %}
         {% for task in tasks %}
-        <button
-          onclick="selectTask({{ task.id }}, '{{ task.title|escapejs }}', '{{ task.tag }}', '{{ task.priority }}')"
-          id="task-btn-{{ task.id }}"
-          class="w-full text-left px-6 py-3.5 hover:bg-white transition-colors group border-l-2 border-transparent"
-        >
-          <div class="flex items-start gap-2">
-            <div class="min-w-0 flex-1">
-              <p class="text-sm text-gray-700 group-hover:text-gray-900 truncate leading-snug font-medium" id="task-title-label-{{ task.id }}">{{ task.title }}</p>
-              <div class="flex items-center gap-1.5 mt-1">
-                {% if task.priority == 'U' %}
-                <span class="text-[10px] font-semibold text-red-500">URGENT</span>
-                {% elif task.priority == 'H' %}
-                <span class="text-[10px] font-semibold text-orange-500">HIGH</span>
-                {% elif task.priority == 'M' %}
-                <span class="text-[10px] text-gray-400">MED</span>
-                {% else %}
-                <span class="text-[10px] text-gray-400">LOW</span>
-                {% endif %}
-                <span class="text-[10px] text-gray-300">·</span>
-                <span class="text-[10px] text-gray-400">{{ task.get_tag_display }}</span>
-                {% if task.is_rest %}
-                <span class="text-[10px] text-emerald-500">· REST</span>
-                {% endif %}
+        <div>
+          <button
+            onclick="selectTask({{ task.id }}, '{{ task.title|escapejs }}', '{{ task.tag }}', '{{ task.priority }}', 'task')"
+            id="task-btn-{{ task.id }}"
+            class="w-full text-left px-6 py-3.5 hover:bg-white transition-colors group border-l-2 border-transparent"
+          >
+            <div class="flex items-start gap-2">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm text-gray-700 group-hover:text-gray-900 truncate leading-snug font-medium" id="task-title-label-{{ task.id }}">{{ task.title }}</p>
+                <div class="flex items-center gap-1.5 mt-1">
+                  {% if task.priority == 'U' %}
+                  <span class="text-[10px] font-semibold text-red-500">URGENT</span>
+                  {% elif task.priority == 'H' %}
+                  <span class="text-[10px] font-semibold text-orange-500">HIGH</span>
+                  {% elif task.priority == 'M' %}
+                  <span class="text-[10px] text-gray-400">MED</span>
+                  {% else %}
+                  <span class="text-[10px] text-gray-400">LOW</span>
+                  {% endif %}
+                  <span class="text-[10px] text-gray-300">·</span>
+                  <span class="text-[10px] text-gray-400">{{ task.get_tag_display }}</span>
+                  {% if task.is_rest %}
+                  <span class="text-[10px] text-emerald-500">· REST</span>
+                  {% endif %}
+                </div>
               </div>
+              {% if task.subtasks.all %}
+              <span
+                id="subtask-chevron-{{ task.id }}"
+                onclick="event.stopPropagation(); toggleSubtasks({{ task.id }})"
+                class="shrink-0 mt-1 text-gray-300 group-hover:text-gray-500 transition-transform cursor-pointer"
+                title="Show subtasks"
+              >▸</span>
+              {% endif %}
             </div>
+          </button>
+
+          {% if task.subtasks.all %}
+          <div id="subtasks-{{ task.id }}" class="hidden border-l border-gray-200 ml-5">
+            {% for sub in task.subtasks.all %}
+            <button
+              onclick="selectTask({{ sub.id }}, '{{ sub.title|escapejs }}', '{{ task.tag }}', '{{ task.priority }}', 'subtask', {{ task.id }})"
+              id="subtask-btn-{{ sub.id }}"
+              class="w-full text-left pl-6 pr-6 py-2 hover:bg-white transition-colors group border-l-2 border-transparent"
+            >
+              <div class="flex items-start gap-2">
+                <span class="text-[10px] text-gray-300 mt-1.5 shrink-0">└</span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-[13px] text-gray-500 group-hover:text-gray-700 truncate leading-snug {% if sub.completed %}line-through opacity-50{% endif %}" id="subtask-title-label-{{ sub.id }}">{{ sub.title }}</p>
+                </div>
+              </div>
+            </button>
+            {% endfor %}
           </div>
-        </button>
+          {% endif %}
+        </div>
         {% endfor %}
       {% else %}
         <div class="px-6 py-10 text-center">
@@ -263,6 +292,8 @@ let S = {
   totalSecs:         25 * 60,   // full duration of current phase
   sessionsCompleted: 0,
   taskId:            null,
+  taskKind:          'task',    // 'task' | 'subtask'
+  parentTaskId:      null,      // parent Task id when taskKind is 'subtask'
   taskTitle:         '',
   taskTag:           '',
   taskPri:           '',
@@ -292,7 +323,8 @@ function clearState() {
   S = {
     mode: S.mode, phase: 'idle', isRunning: false, isPaused: false,
     endTime: null, pausedSecsLeft: null, totalSecs: workSecs(),
-    sessionsCompleted: 0, taskId: null, taskTitle: '', taskTag: '', taskPri: '',
+    sessionsCompleted: 0, taskId: null, taskKind: 'task', parentTaskId: null,
+    taskTitle: '', taskTag: '', taskPri: '',
   };
 }
 
@@ -373,13 +405,15 @@ function renderSessionDots() {
   el.innerHTML = html;
 }
 
-function updateSidebarHighlight(taskId) {
-  document.querySelectorAll('[id^="task-btn-"]').forEach(btn => {
+function updateSidebarHighlight(taskId, kind) {
+  document.querySelectorAll('[id^="task-btn-"], [id^="subtask-btn-"]').forEach(btn => {
     btn.classList.remove('border-indigo-500', 'bg-white/5');
     btn.classList.add('border-transparent');
   });
   if (taskId) {
-    const btn = document.getElementById(`task-btn-${taskId}`);
+    const btn = document.getElementById(
+      kind === 'subtask' ? `subtask-btn-${taskId}` : `task-btn-${taskId}`
+    );
     if (btn) {
       btn.classList.add('border-indigo-500', 'bg-white/5');
       btn.classList.remove('border-transparent');
@@ -519,7 +553,7 @@ function continueWithSameTask() { endBreak(); }
 function changeTask() {
   stopTick();
   S.isRunning = false; S.isPaused = false;
-  S.phase = 'idle'; S.taskId = null;
+  S.phase = 'idle'; S.taskId = null; S.taskKind = 'task'; S.parentTaskId = null;
   S.endTime = null; S.pausedSecsLeft = null;
   saveState();
   updateSidebarHighlight(null);
@@ -528,7 +562,7 @@ function changeTask() {
 }
 
 // ── Select task ────────────────────────────────────────────────────────────────
-function selectTask(id, title, tag, priority) {
+function selectTask(id, title, tag, priority, kind, parentTaskId) {
   if ((S.isRunning || S.isPaused) && S.phase === 'work') {
     if (!confirm('Switch task? This will reset the current timer.')) return;
     stopTick();
@@ -536,18 +570,20 @@ function selectTask(id, title, tag, priority) {
     S.endTime = null; S.pausedSecsLeft = null;
   }
 
-  S.taskId    = id;
-  S.taskTitle = title;
-  S.taskTag   = tag;
-  S.taskPri   = priority;
-  S.phase     = 'work';
-  S.totalSecs = workSecs();
-  S.endTime   = null; S.pausedSecsLeft = null;
-  S.isRunning = false; S.isPaused = false;
+  S.taskId       = id;
+  S.taskKind     = kind || 'task';
+  S.parentTaskId = (kind === 'subtask') ? (parentTaskId || null) : null;
+  S.taskTitle    = title;
+  S.taskTag      = tag;
+  S.taskPri      = priority;
+  S.phase        = 'work';
+  S.totalSecs    = workSecs();
+  S.endTime      = null; S.pausedSecsLeft = null;
+  S.isRunning    = false; S.isPaused = false;
 
   document.getElementById('focus-task-title').textContent = title;
   document.getElementById('focus-task-meta').textContent =
-    `${priorityLabel(priority)} · ${tagLabel(tag)}`;
+    `${priorityLabel(priority)} · ${tagLabel(tag)}${S.taskKind === 'subtask' ? ' · Subtask' : ''}`;
 
   const isDeepWork = (priority === 'H' || priority === 'U') && tag === 'W';
   const badge = document.getElementById('session-badge');
@@ -563,7 +599,7 @@ function selectTask(id, title, tag, priority) {
   saveState();
   renderDisplay();
   renderSessionDots();
-  updateSidebarHighlight(id);
+  updateSidebarHighlight(id, S.taskKind);
   setState('active');
 }
 
@@ -573,24 +609,30 @@ function tagLabel(t) { return {W:'Work',P:'Physical',S:'Spiritual',R:'Relationsh
 // ── Mark done ──────────────────────────────────────────────────────────────────
 function markDone() {
   if (!S.taskId) return;
-  const taskId = S.taskId;
-  fetch(`/pomodoro/complete/${taskId}/`, {
+  const id = S.taskId;
+  const isSubtask = S.taskKind === 'subtask';
+  const url = isSubtask
+    ? `/pomodoro/complete/subtask/${id}/`
+    : `/pomodoro/complete/${id}/`;
+  fetch(url, {
     method: 'POST',
     headers: { 'X-CSRFToken': '{{ csrf_token }}' },
   })
   .then(r => r.json())
   .then(data => {
     if (!data.success) return;
-    const btn = document.getElementById(`task-btn-${taskId}`);
+    const btn = document.getElementById(isSubtask ? `subtask-btn-${id}` : `task-btn-${id}`);
     if (btn) {
       btn.style.opacity = '0.35';
-      const label = document.getElementById(`task-title-label-${taskId}`);
+      const label = document.getElementById(isSubtask ? `subtask-title-label-${id}` : `task-title-label-${id}`);
       if (label) label.style.textDecoration = 'line-through';
     }
-    const nextTask = TASKS.find(t => t.id !== taskId);
-    if (nextTask) {
+    const items = flatItems();
+    const idx = items.findIndex(i => i.id === id && i.kind === (isSubtask ? 'subtask' : 'task'));
+    const next = idx >= 0 ? items[idx + 1] : null;
+    if (next) {
       changeTask();
-      setTimeout(() => selectTask(nextTask.id, nextTask.title, nextTask.tag, nextTask.priority), 400);
+      setTimeout(() => selectTask(next.id, next.title, next.tag, next.priority, next.kind, next.parentTaskId), 400);
     } else {
       stopTick();
       clearState();
@@ -607,6 +649,7 @@ function markDone() {
 function restoreFromStorage() {
   if (!loadState()) return false;
   if (!S.taskId) return false;
+  if (S.taskKind !== 'subtask') { S.taskKind = 'task'; S.parentTaskId = null; }
 
   // If timer was running, compute real elapsed time via wall clock
   if (S.isRunning && S.endTime) {
@@ -628,7 +671,7 @@ function restoreFromStorage() {
   // Rebuild UI from restored state
   document.getElementById('focus-task-title').textContent = S.taskTitle;
   document.getElementById('focus-task-meta').textContent =
-    `${priorityLabel(S.taskPri)} · ${tagLabel(S.taskTag)}`;
+    `${priorityLabel(S.taskPri)} · ${tagLabel(S.taskTag)}${S.taskKind === 'subtask' ? ' · Subtask' : ''}`;
 
   const isDeepWork = (S.taskPri === 'H' || S.taskPri === 'U') && S.taskTag === 'W';
   const badge = document.getElementById('session-badge');
@@ -637,7 +680,7 @@ function restoreFromStorage() {
     ? 'inline-flex items-center gap-2 rounded-full bg-indigo-50 border border-indigo-200 px-4 py-1.5 text-xs font-semibold text-indigo-600'
     : 'inline-flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200 px-4 py-1.5 text-xs font-semibold text-amber-600';
 
-  updateSidebarHighlight(S.taskId);
+  updateSidebarHighlight(S.taskId, S.taskKind);
   renderSessionDots();
   renderDisplay();
 
@@ -677,6 +720,28 @@ function setModeButtons(m) {
       ? 'px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-gray-900 shadow-sm transition-all'
       : 'px-3 py-1.5 rounded-md text-xs font-semibold text-gray-400 hover:text-gray-600 transition-all';
   });
+}
+
+// ── Subtask expand/collapse ────────────────────────────────────────────────────
+function toggleSubtasks(taskId) {
+  const list = document.getElementById(`subtasks-${taskId}`);
+  const chevron = document.getElementById(`subtask-chevron-${taskId}`);
+  if (!list || !chevron) return;
+  const isHidden = list.classList.contains('hidden');
+  list.classList.toggle('hidden', !isHidden);
+  chevron.style.transform = isHidden ? 'rotate(90deg)' : '';
+}
+
+// Flat, ordered list of selectable items (tasks, then their subtasks)
+function flatItems() {
+  const items = [];
+  for (const t of TASKS) {
+    items.push({ id: t.id, title: t.title, tag: t.tag, priority: t.priority, kind: 'task', parentTaskId: null });
+    for (const s of (t.subtasks || [])) {
+      items.push({ id: s.id, title: s.title, tag: t.tag, priority: t.priority, kind: 'subtask', parentTaskId: t.id });
+    }
+  }
+  return items;
 }
 
 // ── Boot ───────────────────────────────────────────────────────────────────────

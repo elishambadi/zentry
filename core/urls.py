@@ -50,6 +50,7 @@ urlpatterns = [
     # Pomodoro
     path('pomodoro/', views.pomodoro_view, name='pomodoro'),
     path('pomodoro/complete/<int:task_id>/', views.pomodoro_complete_task, name='pomodoro_complete_task'),
+    path('pomodoro/complete/subtask/<int:subtask_id>/', views.pomodoro_complete_subtask, name='pomodoro_complete_subtask'),
 
     # Notebooks
     path('notebooks/', views.notebooks_workdesk, name='notebooks'),

@@ -1915,7 +1915,7 @@ def pomodoro_view(request):
         date=today,
         is_recurring_template=False,
         completed=False,
-    )
+    ).prefetch_related('subtasks')
 
     tasks = sorted(
         tasks_qs,
@@ -1935,6 +1935,10 @@ def pomodoro_view(request):
             'priority': t.priority,
             'priority_display': t.get_priority_display(),
             'is_rest': t.is_rest,
+            'subtasks': [
+                {'id': s.id, 'title': s.title, 'completed': s.completed}
+                for s in t.subtasks.all()
+            ],
         }
         for t in tasks
     ]
@@ -1955,6 +1959,16 @@ def pomodoro_complete_task(request, task_id):
     task.completed = not task.completed
     task.save(update_fields=['completed'])
     return JsonResponse({'success': True, 'completed': task.completed})
+
+
+@login_required
+@require_POST
+def pomodoro_complete_subtask(request, subtask_id):
+    """Toggle a subtask complete from the pomodoro page."""
+    subtask = get_object_or_404(SubTask, id=subtask_id, task__user=request.user)
+    subtask.completed = not subtask.completed
+    subtask.save(update_fields=['completed'])
+    return JsonResponse({'success': True, 'completed': subtask.completed})
 
 
 def pwa_manifest(request):
