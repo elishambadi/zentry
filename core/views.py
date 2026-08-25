@@ -1235,6 +1235,107 @@ def zenai_panel(request):
     return render(request, 'core/zenai.html', {'sessions': sessions})
 
 
+def generate_plain_zenai_reply(user_prompt, context_data, history):
+    """Plain, open-ended assistant reply grounded in the user's task workspace."""
+    system_prompt = (
+        'You are ZenAI, a calm, practical productivity assistant inside the user\'s task planner. '
+        'You can see their tasks, goals, ideas, journal entries, and weekly progress. '
+        'Help them think through their day, prioritize, plan, reflect, or unblock themselves. '
+        'Be concise and concrete. When relevant, reference their actual tasks by title. '
+        'Do not invent tasks for them unless asked; you may suggest next actions in prose. '
+        'Return plain text (Markdown is fine). Do not wrap the reply in JSON.'
+    )
+
+    api_key = config('ANTHROPIC_API_KEY', default='').strip()
+    if Anthropic and api_key:
+        client = Anthropic(api_key=api_key)
+        history_text = "\n".join([f"{item['role']}: {item['content']}" for item in history[-8:]])
+        message = (
+            f"Context JSON:\n{json.dumps(context_data, ensure_ascii=False)}\n\n"
+            f"Recent Conversation:\n{history_text}\n\n"
+            f"User Prompt:\n{user_prompt}"
+        )
+        logger.info(
+            '[ZenAI] generate_plain_zenai_reply | user_prompt=%r | model=claude-sonnet-4-6 | max_tokens=700',
+            user_prompt[:120],
+        )
+        try:
+            response = client.messages.create(
+                model='claude-sonnet-4-6',
+                max_tokens=700,
+                temperature=0.5,
+                system=system_prompt,
+                messages=[{'role': 'user', 'content': message}],
+            )
+        except Exception as exc:
+            logger.exception('[ZenAI] generate_plain_zenai_reply API call failed: %s', exc)
+            return "I couldn't reach the model right now. Please try again in a moment."
+        if response.content:
+            return (response.content[0].text or '').strip() or 'I could not generate a response.'
+    logger.warning('[ZenAI] generate_plain_zenai_reply skipped — no Anthropic client or API key configured')
+    return build_plain_zenai_fallback(user_prompt)
+
+
+def build_plain_zenai_fallback(user_prompt):
+    return (
+        "I'd love to help with that, but the live model isn't configured yet. "
+        "Set ANTHROPIC_API_KEY to enable real chat replies. "
+        f"Your message was: “{user_prompt[:160]}”"
+    )
+
+
+@login_required
+def task_chat(request):
+    """Plain, task-focused chat page with full-page conversation."""
+    if request.method == 'POST':
+        payload = json.loads(request.body or '{}')
+        message = (payload.get('message') or '').strip()
+        session_id = payload.get('session_id')
+
+        if not message:
+            return JsonResponse({'success': False, 'error': 'Message is required.'}, status=400)
+
+        if session_id:
+            session = get_object_or_404(ZenChatSession, id=session_id, user=request.user)
+        else:
+            session = ZenChatSession.objects.create(
+                user=request.user,
+                section='task',
+                title=(message[:120] or 'Task chat'),
+            )
+
+        context_data = build_zen_context(request.user, 'task')
+        history = list(session.messages.values('role', 'content'))
+
+        ZenChatMessage.objects.create(
+            session=session,
+            role='user',
+            content=message,
+            context_snapshot=context_data,
+        )
+
+        reply = generate_plain_zenai_reply(message, context_data, history)
+
+        ZenChatMessage.objects.create(
+            session=session,
+            role='assistant',
+            content=reply,
+            context_snapshot={'context': context_data},
+        )
+
+        session.updated_at = timezone.now()
+        session.save(update_fields=['updated_at'])
+
+        return JsonResponse({
+            'success': True,
+            'session_id': session.id,
+            'reply': reply,
+        })
+
+    sessions = ZenChatSession.objects.filter(user=request.user, section='task').order_by('-updated_at')[:30]
+    return render(request, 'core/task_chat.html', {'sessions': sessions})
+
+
 @login_required
 @require_POST
 def zenai_send_message(request):
@@ -1842,6 +1943,34 @@ def toggle_task(request, task_id):
 def delete_task(request, task_id):
     task = get_object_or_404(Task, id=task_id, user=request.user)
     task.delete()
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def delete_task_series(request, task_id):
+    """Remove every occurrence of a recurring task (the whole series).
+
+    Resolves the recurrence template from either the template task itself or a
+    spawned instance, then deletes the template and all of its instances. Leaves
+    the single occurrence that the user clicked untouched.
+    """
+    task = get_object_or_404(Task, id=task_id, user=request.user)
+
+    template = task
+    if not template.is_recurring_template and template.recurrence_source_id:
+        template = template.recurrence_source
+
+    if not template or template.recurrence_type == 'none':
+        return JsonResponse({'success': False, 'error': 'This task has no recurring series.'}, status=400)
+
+    # Delete all instances spawned from the template, plus the template itself.
+    Task.objects.filter(
+        user=request.user,
+        recurrence_source=template,
+    ).delete()
+    template.delete()
+
     return JsonResponse({'success': True})
 
 @login_required

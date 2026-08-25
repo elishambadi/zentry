@@ -12,8 +12,8 @@ urlpatterns = [
     path('review/weekly/', views.weekly_review, name='weekly_review'),
     path('review/monthly/', views.monthly_review, name='monthly_review'),
     path('zenai/', views.zenai_panel, name='zenai_panel'),
-    path('zenai/send/', views.zenai_send_message, name='zenai_send_message'),
-    path('zenai/answer/', views.zenai_answer_clarifying_question, name='zenai_answer_clarifying_question'),
+    path('zenai/tasks/', views.task_chat, name='task_chat'),
+    path('zenai/send/', views.zenai_send_message, name='zenai_send_message'),    path('zenai/answer/', views.zenai_answer_clarifying_question, name='zenai_answer_clarifying_question'),
     path('zenai/sessions/', views.zenai_sessions, name='zenai_sessions'),
     path('zenai/session/<int:session_id>/', views.zenai_session_messages, name='zenai_session_messages'),
     path('zenai/task/add/', views.zenai_add_suggested_task, name='zenai_add_suggested_task'),
@@ -24,6 +24,7 @@ urlpatterns = [
     # Task management
     path('task/toggle/<int:task_id>/', views.toggle_task, name='toggle_task'),
     path('task/delete/<int:task_id>/', views.delete_task, name='delete_task'),
+    path('task/delete-series/<int:task_id>/', views.delete_task_series, name='delete_task_series'),
     path('task/edit/<int:task_id>/', views.edit_task, name='edit_task'),
     path('task/carry/<int:task_id>/', views.carry_task_to_next_day, name='carry_task_to_next_day'),
     

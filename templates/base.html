@@ -88,6 +88,7 @@
                 <a href="{% url 'notebooks' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Notebooks">📓</a>
                 <a href="{% url 'ideas_board' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Ideas">💡</a>
                 <a href="{% url 'goals_list' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Goals">🎯</a>
+                <a href="{% url 'task_chat' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Task Chat">💬</a>
                 <a href="{% url 'weekly_review' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Weekly Review">📅</a>
                 <a href="{% url 'monthly_review' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Monthly Review">📊</a>
                 <a href="{% url 'preferences' %}" class="h-10 w-10 mx-auto rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100" title="Preferences">⚙️</a>
@@ -136,6 +137,11 @@
                     class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
                 <span class="text-xl leading-none">🎯</span>
                 <span class="text-[10px] font-medium">Goals</span>
+            </a>
+            <a href="{% url 'task_chat' %}"
+                    class="mobile-nav-link min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
+                <span class="text-xl leading-none">💬</span>
+                <span class="text-[10px] font-medium">Chat</span>
             </a>
             <button @click="toggleZenAI()"
                     class="min-w-[72px] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-400 hover:text-gray-900 active:bg-gray-50 transition-colors">
