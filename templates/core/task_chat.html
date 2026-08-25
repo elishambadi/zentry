@@ -3,39 +3,77 @@
 {% block title %}Task Chat | Zentry{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto flex flex-col" style="height: calc(100vh - 10rem);">
-  <div class="flex items-center justify-between mb-4">
+<div class="max-w-6xl mx-auto flex flex-col" style="height: calc(100vh - 10rem);">
+  <div class="flex items-center justify-between mb-4 gap-3">
     <div>
       <h1 class="text-2xl font-semibold text-gray-900">Task Chat</h1>
-      <p class="text-sm text-gray-500">A plain chat grounded in your tasks, goals, ideas, and journal.</p>
+      <p class="text-sm text-gray-500">Chat with ZenAI and manage your tasks — create, update, toggle, and delete right here.</p>
     </div>
-    <button onclick="newChat()" class="text-xs bg-primary-600 hover:bg-primary-700 text-white font-medium px-3 py-1.5 rounded-lg">New chat</button>
+    <button onclick="newChat()" class="text-xs bg-primary-600 hover:bg-primary-700 text-white font-medium px-3 py-1.5 rounded-lg shrink-0">New chat</button>
   </div>
 
   <div class="flex flex-1 min-h-0 bg-white border border-gray-200 rounded-xl overflow-hidden">
-    <!-- Session list -->
-    <aside class="w-56 border-r border-gray-200 flex flex-col min-h-0 hidden sm:flex">
-      <div class="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 border-b border-gray-100">History</div>
-      <div id="session-list" class="flex-1 overflow-y-auto p-1 space-y-0.5">
-        {% for session in sessions %}
-        <button onclick="loadSession({{ session.id }})"
-                class="w-full text-left px-2 py-1.5 rounded-md text-xs text-gray-700 hover:bg-gray-100 truncate"
-                title="{{ session.title }}">{{ session.title }}</button>
-        {% empty %}
-        <p class="px-2 py-1.5 text-xs text-gray-400">No chats yet.</p>
-        {% endfor %}
+    <!-- Left: History + My Tasks -->
+    <aside class="w-64 border-r border-gray-200 flex flex-col min-h-0 hidden sm:flex">
+
+      <!-- History -->
+      <div class="flex-1 min-h-0 flex flex-col border-b border-gray-100">
+        <div class="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 border-b border-gray-100 flex items-center justify-between">
+          <span>History</span>
+          <button onclick="refreshSessions()" title="Refresh" class="text-gray-300 hover:text-gray-500">↻</button>
+        </div>
+        <div id="session-list" class="flex-1 overflow-y-auto p-1 space-y-0.5">
+          {% for session in sessions %}
+          <button onclick="loadSession({{ session.id }})"
+                  class="session-item w-full text-left px-2 py-1.5 rounded-md text-xs text-gray-700 hover:bg-gray-100 truncate"
+                  data-session-id="{{ session.id }}"
+                  title="{{ session.title }}">{{ session.title }}</button>
+          {% empty %}
+          <p class="px-2 py-1.5 text-xs text-gray-400">No chats yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- My Tasks -->
+      <div class="flex-1 min-h-0 flex flex-col">
+        <div class="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 border-b border-gray-100 flex items-center justify-between">
+          <span>My Tasks</span>
+          <span class="text-gray-300">{{ today|date:"M j" }}</span>
+        </div>
+        <div class="px-3 pt-3">
+          <form id="quick-task-form" class="flex gap-1.5">
+            <input id="quick-task-input" type="text" placeholder="Add a task…"
+                   class="flex-1 text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:border-primary-400 focus:ring-0">
+            <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white text-xs font-medium px-2.5 py-1.5 rounded-md">+</button>
+          </form>
+        </div>
+        <div id="today-task-list" class="flex-1 overflow-y-auto p-2 space-y-1">
+          {% for task in today_tasks %}
+            <div class="group flex items-center gap-2 rounded-md border border-gray-100 px-2 py-1.5 hover:bg-gray-50" data-server-task>
+              <span class="flex-1 min-w-0">
+                <span class="block text-xs text-gray-700 truncate {% if task.completed %}line-through text-gray-400{% endif %}">{{ task.title }}</span>
+                <span class="flex flex-wrap gap-1 mt-0.5">
+                  <span class="rounded-full px-1.5 py-0.5 text-[9px] font-semibold {{ task.tag_color }}">{{ task.tag_label }}</span>
+                  <span class="rounded-full px-1.5 py-0.5 text-[9px] font-semibold bg-gray-100 text-gray-600">{{ task.priority_label }}</span>
+                </span>
+              </span>
+            </div>
+          {% empty %}
+          <p class="px-2 py-1.5 text-xs text-gray-400">No tasks today yet.</p>
+          {% endfor %}
+        </div>
       </div>
     </aside>
 
     <!-- Chat area -->
     <div class="flex-1 flex flex-col min-h-0">
-      <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3">
-        <div class="text-center text-xs text-gray-400 pt-8">Ask anything about your tasks and day.</div>
+      <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div id="chat-empty" class="text-center text-xs text-gray-400 pt-8">Ask ZenAI about your tasks and day, or type a task directly.</div>
       </div>
 
       <form id="chat-form" class="border-t border-gray-100 p-3 flex items-center gap-2">
         {% csrf_token %}
-        <input id="chat-input" type="text" autocomplete="off" placeholder="Message ZenAI…"
+        <input id="chat-input" type="text" autocomplete="off" placeholder="Message ZenAI… (or type a task to add)"
                class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary-400 focus:ring-0"
                required>
         <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Send</button>
@@ -46,66 +84,397 @@
 
 <script>
 let currentSessionId = null;
+const todayStr = new Date().toISOString().slice(0, 10);
 
-function appendMessage(role, content) {
-    const box = document.getElementById('chat-messages');
-    const wrap = document.createElement('div');
-    wrap.className = 'flex ' + (role === 'user' ? 'justify-end' : 'justify-start');
-    const bubble = document.createElement('div');
-    bubble.className = role === 'user'
-        ? 'max-w-[80%] rounded-xl bg-primary-600 text-white px-3 py-2 text-sm whitespace-pre-line'
-        : 'max-w-[80%] rounded-xl bg-gray-100 text-gray-800 px-3 py-2 text-sm whitespace-pre-line';
-    bubble.textContent = content;
-    wrap.appendChild(bubble);
-    box.appendChild(wrap);
-    box.scrollTop = box.scrollHeight;
+/* ── CSRF ─────────────────────────────────────────────────────── */
+function getCsrf() {
+  return document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
+}
+
+/* ── Lightweight Markdown renderer (safe, no innerHTML injection) ── */
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function inlineMd(text) {
+  let t = escapeHtml(text);
+  t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="text-indigo-600 underline">$1</a>');
+  t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  t = t.replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 py-0.5 rounded text-xs">$1</code>');
+  return t;
+}
+function renderMarkdown(md) {
+  const lines = (md || '').split('\n');
+  let html = '';
+  let inCode = false;
+  let inList = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+
+    if (line.startsWith('```')) {
+      closeList();
+      if (inCode) { html += '</code></pre>'; inCode = false; }
+      else { inCode = true; html += '<pre class="bg-gray-100 rounded-lg p-3 text-xs overflow-x-auto my-2"><code>'; }
+      continue;
+    }
+    if (inCode) { html += escapeHtml(line) + '\n'; continue; }
+    if (!line) { closeList(); html += '<br>'; continue; }
+
+    if (/^#{1,6}\s/.test(line)) {
+      closeList();
+      const level = line.match(/^#{1,6}/)[0].length;
+      html += `<h${Math.min(level,4)} class="font-semibold text-gray-900 mt-3 mb-1 text-${['base','base','sm','sm'][level-1] || 'sm'}">${inlineMd(line.replace(/^#{1,6}\s*/, ''))}</h${Math.min(level,4)}>`;
+    } else if (/^>\s?/.test(line)) {
+      closeList();
+      html += `<blockquote class="border-l-2 border-gray-300 pl-3 my-1 text-gray-600">${inlineMd(line.replace(/^>\s?/, ''))}</blockquote>`;
+    } else if (/^[-*]\s/.test(line) && !/^[-*]\s*\[/.test(line)) {
+      if (!inList) { html += '<ul class="list-disc pl-5 my-1 space-y-0.5">'; inList = true; }
+      html += `<li>${inlineMd(line.replace(/^[-*]\s*/, ''))}</li>`;
+    } else {
+      closeList();
+      html += `<p class="my-1 leading-relaxed">${inlineMd(line)}</p>`;
+    }
+  }
+  closeList();
+  return html;
+}
+
+/* ── Message rendering with task suggestions ──────────────────── */
+function appendMessage(role, content, suggestions) {
+  document.getElementById('chat-empty')?.remove();
+  const box = document.getElementById('chat-messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'flex ' + (role === 'user' ? 'justify-end' : 'justify-start');
+
+  const inner = document.createElement('div');
+  inner.className = role === 'user'
+    ? 'max-w-[80%] rounded-xl bg-primary-600 text-white px-3 py-2 text-sm'
+    : 'max-w-[85%] rounded-xl bg-gray-100 text-gray-800 px-4 py-3 text-sm';
+
+  if (role === 'user') {
+    inner.textContent = content;
+  } else {
+    inner.innerHTML = renderMarkdown(content);
+    if (suggestions && suggestions.length) {
+      const sWrap = document.createElement('div');
+      sWrap.className = 'mt-3 space-y-2 border-t border-gray-200 pt-3';
+      const sLabel = document.createElement('p');
+      sLabel.className = 'text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2';
+      sLabel.textContent = 'Suggested tasks';
+      sWrap.appendChild(sLabel);
+      suggestions.forEach(s => sWrap.appendChild(buildSuggestionCard(s)));
+      inner.appendChild(sWrap);
+    }
+  }
+
+  wrap.appendChild(inner);
+  box.appendChild(wrap);
+  box.scrollTop = box.scrollHeight;
+  return wrap;
+}
+
+function buildSuggestionCard(s) {
+  const card = document.createElement('div');
+  card.className = 'flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2';
+
+  const check = document.createElement('button');
+  check.className = 'shrink-0 w-4 h-4 rounded-sm border ' + (s.completed ? 'bg-green-500 border-green-500' : 'border-gray-300 hover:border-green-400');
+  check.title = 'Toggle complete';
+  check.innerHTML = s.completed ? '<svg class="w-3 h-3 mx-auto text-white" fill="none" stroke="white" stroke-width="2" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5"/></svg>' : '';
+  check.onclick = () => toggleSuggestion(s, card, check);
+
+  const body = document.createElement('div');
+  body.className = 'flex-1 min-w-0';
+  const title = document.createElement('p');
+  title.className = 'text-xs font-medium text-gray-800 truncate';
+  title.textContent = s.title;
+  if (s.completed) title.classList.add('line-through', 'text-gray-400');
+  const meta = document.createElement('div');
+  meta.className = 'flex flex-wrap gap-1 mt-0.5';
+  meta.appendChild(chip(tagLabel(s.tag_label || s.tag), 'bg-blue-50 text-blue-700'));
+  meta.appendChild(chip(priorityLabel(s.priority_label || s.priority), s.priority === 'U' ? 'bg-red-50 text-red-700' : s.priority === 'H' ? 'bg-orange-50 text-orange-700' : 'bg-gray-100 text-gray-600'));
+  if (s.date) meta.appendChild(chip(s.date, 'bg-gray-50 text-gray-500'));
+  body.appendChild(title);
+  body.appendChild(meta);
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'shrink-0 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-2.5 py-1.5 rounded-md';
+  addBtn.textContent = 'Add';
+  addBtn.onclick = () => createTaskFromSuggestion(s, addBtn);
+
+  card.appendChild(check);
+  card.appendChild(body);
+  card.appendChild(addBtn);
+  return card;
+}
+
+function chip(text, cls) {
+  const c = document.createElement('span');
+  c.className = 'rounded-full px-1.5 py-0.5 text-[9px] font-semibold ' + cls;
+  c.textContent = text;
+  return c;
+}
+
+const TAG_LABELS = { P: 'Physical', S: 'Spiritual', W: 'Work', R: 'Relationships', B: 'Bonus' };
+const PRIORITY_LABELS = { L: 'Low', M: 'Medium', H: 'High', U: 'Urgent' };
+
+function tagLabel(code) { return TAG_LABELS[code] || code; }
+function priorityLabel(code) { return PRIORITY_LABELS[code] || code; }
+
+/* ── Suggestion actions ───────────────────────────────────────── */
+async function createTaskFromSuggestion(s, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Adding…';
+  const res = await fetch('/zenai/tasks/create/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: s.title, tag: s.tag, priority: s.priority, date: s.date || todayStr, is_rest: false }),
+  });
+  const data = await res.json();
+  if (data.success) {
+    btn.textContent = '✓ Added';
+    btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+    btn.classList.add('bg-green-600');
+    refreshTasks();
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Add';
+    alert(data.error || 'Could not add task.');
+  }
+}
+
+async function toggleSuggestion(s, card, check) {
+  const date = s.date || todayStr;
+  const res = await fetch('/zenai/tasks/create/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: s.title, tag: s.tag, priority: s.priority, date, is_rest: false, completed: !s.completed }),
+  });
+  const data = await res.json();
+  if (data.success) {
+    s.completed = !s.completed;
+    check.classList.toggle('bg-green-500', s.completed);
+    check.classList.toggle('border-green-500', s.completed);
+    check.classList.toggle('border-gray-300', !s.completed);
+    check.innerHTML = s.completed ? '<svg class="w-3 h-3 mx-auto text-white" fill="none" stroke="white" stroke-width="2" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5"/></svg>' : '';
+    const title = card.querySelector('p');
+    title.classList.toggle('line-through', s.completed);
+    title.classList.toggle('text-gray-400', s.completed);
+    refreshTasks();
+  }
+}
+
+/* ── My Tasks panel ───────────────────────────────────────────── */
+function taskRow(task) {
+  const row = document.createElement('div');
+  row.className = 'group flex items-center gap-2 rounded-md border border-gray-100 px-2 py-1.5 hover:bg-gray-50';
+  row.dataset.id = task.id;
+
+  const check = document.createElement('button');
+  check.className = 'shrink-0 w-4 h-4 rounded-sm border ' + (task.completed ? 'bg-green-500 border-green-500' : 'border-gray-300 hover:border-green-400');
+  check.innerHTML = task.completed ? '<svg class="w-3 h-3 mx-auto text-white" fill="none" stroke="white" stroke-width="2" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5"/></svg>' : '';
+  check.onclick = () => toggleTask(task.id, row);
+
+  const body = document.createElement('div');
+  body.className = 'flex-1 min-w-0';
+  const title = document.createElement('p');
+  title.className = 'text-xs text-gray-700 truncate' + (task.completed ? ' line-through text-gray-400' : '');
+  title.textContent = task.title;
+  const meta = document.createElement('div');
+  meta.className = 'flex flex-wrap gap-1 mt-0.5';
+  meta.appendChild(chip(task.tag_label, task.tag_color));
+  meta.appendChild(chip(task.priority_label, task.priority === 'U' ? 'bg-red-50 text-red-700' : task.priority === 'H' ? 'bg-orange-50 text-orange-700' : 'bg-gray-100 text-gray-600'));
+  body.appendChild(title);
+  body.appendChild(meta);
+
+  const actions = document.createElement('div');
+  actions.className = 'flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity';
+  const editBtn = document.createElement('button');
+  editBtn.className = 'text-[10px] text-blue-500 hover:text-blue-700';
+  editBtn.textContent = 'Edit';
+  editBtn.onclick = () => editTaskInline(row, task);
+  const delBtn = document.createElement('button');
+  delBtn.className = 'text-[10px] text-red-400 hover:text-red-600';
+  delBtn.textContent = '✕';
+  delBtn.title = 'Delete task';
+  delBtn.onclick = () => deleteTask(task.id, row);
+  actions.appendChild(editBtn);
+  actions.appendChild(delBtn);
+
+  row.appendChild(check);
+  row.appendChild(body);
+  row.appendChild(actions);
+  return row;
+}
+
+function editTaskInline(row, task) {
+  row.innerHTML = '';
+  const form = document.createElement('form');
+  form.className = 'flex items-center gap-1.5 w-full';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = task.title;
+  input.className = 'flex-1 text-xs border border-blue-200 rounded-md px-2 py-1 focus:outline-none focus:border-blue-400';
+  const save = document.createElement('button');
+  save.type = 'submit';
+  save.className = 'text-[10px] bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded';
+  save.textContent = 'Save';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'text-[10px] text-gray-400 hover:text-gray-600 px-1';
+  cancel.textContent = '✕';
+  cancel.onclick = () => { row.replaceWith(taskRow(task)); };
+  form.appendChild(input);
+  form.appendChild(save);
+  form.appendChild(cancel);
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const val = input.value.trim();
+    if (!val) return;
+    const res = await fetch(`/zenai/tasks/${task.id}/update/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: val }),
+    });
+    const data = await res.json();
+    if (data.success) row.replaceWith(taskRow(data.task));
+  };
+  row.appendChild(form);
+  input.focus();
+}
+
+async function toggleTask(id, row) {
+  const res = await fetch(`/zenai/tasks/${id}/toggle/`, {
+    method: 'POST', headers: { 'X-CSRFToken': getCsrf() },
+  });
+  const data = await res.json();
+  if (data.success) row.replaceWith(taskRow(data.task));
+}
+
+async function deleteTask(id, row) {
+  if (!confirm('Delete this task?')) return;
+  const res = await fetch(`/zenai/tasks/${id}/delete/`, {
+    method: 'POST', headers: { 'X-CSRFToken': getCsrf() },
+  });
+  const data = await res.json();
+  if (data.success) row.remove();
+}
+
+async function refreshTasks() {
+  const list = document.getElementById('today-task-list');
+  if (!list) return;
+  const res = await fetch(`/zenai/tasks/list/?date=${todayStr}`);
+  const data = await res.json();
+  if (!data.success) return;
+  list.innerHTML = '';
+  if (!data.tasks.length) {
+    const p = document.createElement('p');
+    p.className = 'px-2 py-1.5 text-xs text-gray-400';
+    p.textContent = 'No tasks today yet.';
+    list.appendChild(p);
+  } else {
+    data.tasks.forEach(t => list.appendChild(taskRow(t)));
+  }
+}
+
+document.getElementById('quick-task-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('quick-task-input');
+  const val = input.value.trim();
+  if (!val) return;
+  const res = await fetch('/zenai/tasks/create/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: val, date: todayStr }),
+  });
+  const data = await res.json();
+  if (data.success) { input.value = ''; refreshTasks(); }
+});
+
+/* ── Sessions ─────────────────────────────────────────────────── */
+function highlightSession(id) {
+  document.querySelectorAll('.session-item').forEach(el =>
+    el.classList.toggle('bg-indigo-50', String(el.dataset.sessionId) === String(id)));
 }
 
 async function loadSession(sessionId) {
-    currentSessionId = sessionId;
-    document.getElementById('chat-messages').innerHTML = '';
-    const res = await fetch(`/zenai/session/${sessionId}/`);
-    const data = await res.json();
-    if (data.success) {
-        (data.messages || []).forEach(m => appendMessage(m.role, m.content));
-    }
+  currentSessionId = sessionId;
+  document.getElementById('chat-messages').innerHTML = '';
+  highlightSession(sessionId);
+  const res = await fetch(`/zenai/session/${sessionId}/`);
+  const data = await res.json();
+  if (data.success) {
+    (data.messages || []).forEach(m => {
+      if (m.role === 'assistant') appendMessage(m.role, m.content);
+      else appendMessage(m.role, m.content);
+    });
+  }
 }
 
 function newChat() {
-    currentSessionId = null;
-    document.getElementById('chat-messages').innerHTML = '';
-    document.getElementById('chat-input').value = '';
-    document.getElementById('chat-input').focus();
+  currentSessionId = null;
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('chat-input').value = '';
+  document.getElementById('chat-input').focus();
+  highlightSession(null);
 }
 
-document.getElementById('chat-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const input = document.getElementById('chat-input');
-    const message = input.value.trim();
-    if (!message) return;
-    input.value = '';
-
-    appendMessage('user', message);
-    appendMessage('assistant', '…');
-
-    const res = await fetch('{% url "task_chat" %}', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message, session_id: currentSessionId }),
+async function refreshSessions() {
+  const res = await fetch('/zenai/sessions/');
+  const data = await res.json();
+  const list = document.getElementById('session-list');
+  if (!data.success) return;
+  list.innerHTML = '';
+  if (!data.sessions.length) {
+    const p = document.createElement('p');
+    p.className = 'px-2 py-1.5 text-xs text-gray-400';
+    p.textContent = 'No chats yet.';
+    list.appendChild(p);
+  } else {
+    data.sessions.forEach(s => {
+      const b = document.createElement('button');
+      b.onclick = () => loadSession(s.id);
+      b.className = 'session-item w-full text-left px-2 py-1.5 rounded-md text-xs text-gray-700 hover:bg-gray-100 truncate';
+      b.dataset.sessionId = s.id;
+      b.title = s.title;
+      b.textContent = s.title;
+      list.appendChild(b);
     });
-    const data = await res.json();
-    const bubbles = document.querySelectorAll('#chat-messages > div');
-    if (bubbles.length) bubbles[bubbles.length - 1].remove();
+  }
+  highlightSession(currentSessionId);
+}
 
-    if (data.success) {
-        currentSessionId = data.session_id;
-        appendMessage('assistant', data.reply);
-    } else {
-        appendMessage('assistant', data.error || 'Something went wrong.');
-    }
+/* ── Submit ───────────────────────────────────────────────────── */
+document.getElementById('chat-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('chat-input');
+  const message = input.value.trim();
+  if (!message) return;
+  input.value = '';
+
+  appendMessage('user', message);
+  appendMessage('assistant', '…');
+
+  const res = await fetch('{% url "task_chat" %}', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, session_id: currentSessionId }),
+  });
+  const data = await res.json();
+  const bubbles = document.querySelectorAll('#chat-messages > div');
+  if (bubbles.length) bubbles[bubbles.length - 1].remove();
+
+  if (data.success) {
+    currentSessionId = data.session_id;
+    appendMessage('assistant', data.reply, data.suggestions || []);
+    refreshSessions();
+  } else {
+    appendMessage('assistant', data.error || 'Something went wrong.');
+  }
 });
+
+refreshTasks();
 </script>
 {% endblock %}

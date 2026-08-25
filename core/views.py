@@ -19,6 +19,7 @@ import json
 import calendar
 import logging
 import random
+import re
 import time
 import httpx
 import uuid
@@ -1242,8 +1243,12 @@ def generate_plain_zenai_reply(user_prompt, context_data, history):
         'You can see their tasks, goals, ideas, journal entries, and weekly progress. '
         'Help them think through their day, prioritize, plan, reflect, or unblock themselves. '
         'Be concise and concrete. When relevant, reference their actual tasks by title. '
-        'Do not invent tasks for them unless asked; you may suggest next actions in prose. '
-        'Return plain text (Markdown is fine). Do not wrap the reply in JSON.'
+        'When you suggest concrete next actions or tasks, list them as Markdown checkbox items, '
+        'optionally with metadata in parentheses. Example:\n'
+        '- [ ] Draft the outline (tag: Work, priority: High, date: 2026-08-26)\n'
+        'Valid tags: Work, Physical, Spiritual, Relationships, Bonus. Valid priorities: Low, Medium, High, Urgent. '
+        'Use a date of YYYY-MM-DD. Keep suggestions short and actionable. '
+        'Return Markdown. Do not wrap the reply in JSON.'
     )
 
     api_key = config('ANTHROPIC_API_KEY', default='').strip()
@@ -1282,6 +1287,86 @@ def build_plain_zenai_fallback(user_prompt):
         "Set ANTHROPIC_API_KEY to enable real chat replies. "
         f"Your message was: “{user_prompt[:160]}”"
     )
+
+
+def task_to_dict(task):
+    return {
+        'id': task.id,
+        'title': task.title,
+        'date': task.date.isoformat(),
+        'tag': task.tag,
+        'tag_label': task.get_tag_display(),
+        'tag_color': task.get_tag_color(),
+        'priority': task.priority,
+        'priority_label': task.get_priority_display(),
+        'is_rest': task.is_rest,
+        'recurrence_type': task.recurrence_type,
+        'completed': task.completed,
+    }
+
+
+def extract_task_suggestions(reply):
+    """Parse markdown checkbox lines into structured task suggestions.
+
+    ZenAI may emit tasks as markdown checkboxes, optionally with trailing
+    metadata in parentheses, e.g.:
+
+      - [ ] Write the launch post (tag: Work, priority: High, date: 2026-08-26)
+    """
+    tag_map = {label.lower(): code for code, label in Task.TAGS}
+    priority_map = {label.lower(): code for code, label in Task.PRIORITY_CHOICES}
+
+    suggestions = []
+    for raw in (reply or '').splitlines():
+        stripped = raw.strip()
+        m = re.match(r'^[-*]\s*\[( |x|X)\]\s*(.+)$', stripped)
+        if not m:
+            continue
+        checked = m.group(1).lower() == 'x'
+        text = m.group(2).strip()
+
+        tag = 'W'
+        priority = 'M'
+        task_date = None
+
+        meta = re.search(r'\(([^)]*)\)\s*$', text)
+        if meta:
+            for part in meta.group(1).split(','):
+                part = part.strip()
+                if ':' not in part:
+                    continue
+                key, _, value = part.partition(':')
+                value = value.strip()
+                key_l = key.lower()
+                if key_l == 'tag':
+                    tag = tag_map.get(value.lower(), value.upper() if value.upper() in {c for c, _ in Task.TAGS} else 'W')
+                elif key_l == 'priority':
+                    priority = priority_map.get(value.lower(), value.upper() if value.upper() in {c for c, _ in Task.PRIORITY_CHOICES} else 'M')
+                elif key_l in ('date', 'day', 'when'):
+                    try:
+                        task_date = datetime.strptime(value, '%Y-%m-%d').date().isoformat()
+                    except ValueError:
+                        task_date = None
+            text = text[:meta.start()].strip()
+
+        suggestions.append({
+            'title': text[:200],
+            'tag': tag,
+            'priority': priority,
+            'date': task_date,
+            'completed': checked,
+        })
+
+    return suggestions
+
+
+def parse_task_date(value):
+    if not value:
+        return date.today()
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        return date.today()
 
 
 @login_required
@@ -1330,10 +1415,100 @@ def task_chat(request):
             'success': True,
             'session_id': session.id,
             'reply': reply,
+            'suggestions': extract_task_suggestions(reply),
         })
 
     sessions = ZenChatSession.objects.filter(user=request.user, section='task').order_by('-updated_at')[:30]
-    return render(request, 'core/task_chat.html', {'sessions': sessions})
+    today_tasks = Task.objects.filter(user=request.user, date=date.today()).order_by('completed', 'priority', 'created_at')[:50]
+    return render(request, 'core/task_chat.html', {
+        'sessions': sessions,
+        'today': date.today(),
+        'today_tasks': [task_to_dict(t) for t in today_tasks],
+    })
+
+
+@login_required
+def task_chat_tasks(request):
+    """Return the user's tasks for a given date (default today)."""
+    day = parse_task_date(request.GET.get('date'))
+    tasks = Task.objects.filter(user=request.user, date=day).order_by('completed', 'priority', 'created_at')
+    return JsonResponse({'success': True, 'date': day.isoformat(), 'tasks': [task_to_dict(t) for t in tasks]})
+
+
+@login_required
+@require_POST
+def task_chat_create(request):
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON payload.'}, status=400)
+
+    title = (payload.get('title') or '').strip()
+    if not title:
+        return JsonResponse({'success': False, 'error': 'Task title is required.'}, status=400)
+
+    valid_tags = {c for c, _ in Task.TAGS}
+    valid_priorities = {c for c, _ in Task.PRIORITY_CHOICES}
+    tag = (payload.get('tag') or 'W').strip().upper()
+    priority = (payload.get('priority') or 'M').strip().upper()
+
+    task = Task.objects.create(
+        user=request.user,
+        date=parse_task_date(payload.get('date')),
+        title=title[:200],
+        tag=tag if tag in valid_tags else 'W',
+        priority=priority if priority in valid_priorities else 'M',
+        is_rest=bool(payload.get('is_rest', False)),
+    )
+    return JsonResponse({'success': True, 'task': task_to_dict(task)})
+
+
+@login_required
+@require_POST
+def task_chat_update(request, task_id):
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON payload.'}, status=400)
+
+    task = get_object_or_404(Task, id=task_id, user=request.user)
+    valid_tags = {c for c, _ in Task.TAGS}
+    valid_priorities = {c for c, _ in Task.PRIORITY_CHOICES}
+
+    if 'title' in payload and payload['title'].strip():
+        task.title = payload['title'].strip()[:200]
+    if 'date' in payload:
+        task.date = parse_task_date(payload.get('date'))
+    if 'tag' in payload:
+        tag = payload['tag'].strip().upper()
+        task.tag = tag if tag in valid_tags else task.tag
+    if 'priority' in payload:
+        priority = payload['priority'].strip().upper()
+        task.priority = priority if priority in valid_priorities else task.priority
+    if 'is_rest' in payload:
+        task.is_rest = bool(payload.get('is_rest'))
+    if 'completed' in payload:
+        task.completed = bool(payload.get('completed'))
+    task.save()
+
+    return JsonResponse({'success': True, 'task': task_to_dict(task)})
+
+
+@login_required
+@require_POST
+def task_chat_delete(request, task_id):
+    task = get_object_or_404(Task, id=task_id, user=request.user)
+    task.delete()
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def task_chat_toggle(request, task_id):
+    task = get_object_or_404(Task, id=task_id, user=request.user)
+    task.completed = not task.completed
+    task.save()
+    return JsonResponse({'success': True, 'task': task_to_dict(task)})
 
 
 @login_required
