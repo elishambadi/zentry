@@ -49,8 +49,11 @@ class Task(models.Model):
     recurrence_source = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='recurrence_instances')
     completed = models.BooleanField(default=False)
     carried_over = models.BooleanField(default=False)
+    is_dead = models.BooleanField(default=False)
+    dead_at = models.DateTimeField(null=True, blank=True)
     overdue_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
     
     class Meta:
         ordering = ['created_at']
@@ -60,6 +63,11 @@ class Task(models.Model):
     
     def get_tag_color(self):
         return self.TAG_COLORS.get(self.tag, 'bg-gray-100 text-gray-800')
+
+    @property
+    def auto_cleaned(self):
+        """True when the task was retired by the daily cleanup (auto_cleaned note)."""
+        return any(n.content == 'auto_cleaned' for n in self.notes.all())
 
     def get_recurrence_days_set(self):
         values = set()

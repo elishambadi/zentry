@@ -32,6 +32,8 @@ urlpatterns = [
     path('task/delete-series/<int:task_id>/', views.delete_task_series, name='delete_task_series'),
     path('task/edit/<int:task_id>/', views.edit_task, name='edit_task'),
     path('task/carry/<int:task_id>/', views.carry_task_to_next_day, name='carry_task_to_next_day'),
+    path('task/kill/<int:task_id>/', views.kill_task, name='kill_task'),
+    path('task/revive/<int:task_id>/', views.revive_task, name='revive_task'),
     
     # SubTask management
     path('task/<int:task_id>/subtask/add/', views.add_subtask, name='add_subtask'),

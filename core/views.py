@@ -143,6 +143,7 @@ def ensure_recurring_tasks_for_date(user, selected_date):
     templates = Task.objects.filter(
         user=user,
         is_recurring_template=True,
+        is_dead=False,
     ).exclude(recurrence_type='none')
 
     for template in templates:
@@ -153,6 +154,7 @@ def ensure_recurring_tasks_for_date(user, selected_date):
             user=user,
             date=selected_date,
             recurrence_source=template,
+            is_dead=False,
         ).exists()
         if already_exists:
             continue
@@ -173,13 +175,13 @@ def build_zen_context(user, section):
     start_week = today - timedelta(days=today.weekday())
     end_week = start_week + timedelta(days=6)
 
-    recent_tasks = Task.objects.filter(user=user).order_by('-date', '-created_at')[:12]
-    completed_recent = Task.objects.filter(user=user, completed=True).order_by('-date')[:8]
+    recent_tasks = Task.objects.filter(user=user, is_dead=False).order_by('-date', '-created_at')[:12]
+    completed_recent = Task.objects.filter(user=user, completed=True, is_dead=False).order_by('-date')[:8]
     active_goals = Goal.objects.filter(user=user, completed=False).order_by('-updated_at')[:8]
     recent_ideas = Idea.objects.filter(user=user).order_by('-updated_at')[:8]
     journals = JournalEntry.objects.filter(user=user).order_by('-date')[:5]
 
-    weekly_tasks = Task.objects.filter(user=user, date__range=[start_week, end_week])
+    weekly_tasks = Task.objects.filter(user=user, is_dead=False, date__range=[start_week, end_week])
     weekly_total = weekly_tasks.count()
     weekly_completed = weekly_tasks.filter(completed=True).count()
 
@@ -1058,6 +1060,7 @@ def generate_idea_task_breakdown_reply(idea, clarifying_question, clarifying_ans
         'Prefer specific tools, frameworks, APIs, environments, file types, integrations, and verbs. '
         'Avoid vague tasks like "plan", "brainstorm", "define success", or "make prototype" unless they name a concrete artifact and tool. '
         'Order tasks by execution sequence. Keep scope realistic for a near-term working slice. '
+        'BE CONCISE: keep every "why" under 15 words and every "note" under 60 words. Short notes, no padding. '
         'Return ONLY valid JSON with this exact schema: '
         '{'
         '"focus_target": string,'
@@ -1095,7 +1098,7 @@ def generate_idea_task_breakdown_reply(idea, clarifying_question, clarifying_ans
             'today': date.today().isoformat(),
         }
         logger.info(
-            '[ZenAI] generate_idea_task_breakdown_reply | idea_id=%s | idea_title=%r | answer=%r | model=claude-sonnet-4-6 | max_tokens=4096',
+            '[ZenAI] generate_idea_task_breakdown_reply | idea_id=%s | idea_title=%r | answer=%r | model=claude-sonnet-4-6 | max_tokens=2400',
             idea.id, idea.title, clarifying_answer,
         )
         logger.debug('[ZenAI] idea_task_breakdown prompt payload: %s', json.dumps(prompt, ensure_ascii=False))
@@ -1103,7 +1106,7 @@ def generate_idea_task_breakdown_reply(idea, clarifying_question, clarifying_ans
         try:
             response = client.messages.create(
                 model='claude-sonnet-4-6',
-                max_tokens=4096,
+                max_tokens=2400,
                 temperature=0.4,
                 system=system_prompt,
                 messages=[
@@ -2054,6 +2057,7 @@ def daily_view(request, year, month, day):
         user=request.user, 
         date=selected_date,
         is_recurring_template=False,
+        is_dead=False,
     ).prefetch_related('subtasks', 'notes', 'links', 'task_goals__goal')
     
     # Get carried over tasks from previous day
@@ -2061,7 +2065,8 @@ def daily_view(request, year, month, day):
     carried_over_tasks = Task.objects.filter(
         user=request.user,
         date__lt=selected_date,
-        completed=False
+        completed=False,
+        is_dead=False,
     ).order_by('-date')[:10]
     
     # Navigation dates
@@ -2137,6 +2142,47 @@ def delete_task(request, task_id):
 
 @login_required
 @require_POST
+def kill_task(request, task_id):
+    """Mark a task as dead — it is ignored and no longer recurs or carries forward.
+
+    For recurring tasks the whole series (template + every spawned instance) is
+    killed, so no new occurrences are ever generated again.
+    """
+    task = get_object_or_404(Task, id=task_id, user=request.user)
+
+    template = task
+    if not template.is_recurring_template and template.recurrence_source_id:
+        template = template.recurrence_source
+
+    if template and template.recurrence_type != 'none':
+        Task.objects.filter(user=request.user, recurrence_source=template).update(
+            is_dead=True, dead_at=timezone.now()
+        )
+        template.is_dead = True
+        template.dead_at = timezone.now()
+        template.save(update_fields=['is_dead', 'dead_at'])
+        return JsonResponse({'success': True, 'series': True})
+
+    task.is_dead = True
+    task.dead_at = timezone.now()
+    task.save(update_fields=['is_dead', 'dead_at'])
+    return JsonResponse({'success': True, 'series': False})
+
+
+@login_required
+@require_POST
+def revive_task(request, task_id):
+    task = get_object_or_404(Task, id=task_id, user=request.user)
+    if not task.is_dead:
+        return JsonResponse({'success': False, 'error': 'Task is not dead.'}, status=400)
+    task.is_dead = False
+    task.dead_at = None
+    task.save(update_fields=['is_dead', 'dead_at'])
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
 def delete_task_series(request, task_id):
     """Remove every occurrence of a recurring task (the whole series).
 
@@ -2197,6 +2243,7 @@ def calendar_view(request):
                 user=request.user,
                 date=d,
                 is_recurring_template=False,
+                is_dead=False,
             ).order_by('completed', 'created_at')
             week_days_data.append({
                 'date': d,
@@ -2208,6 +2255,7 @@ def calendar_view(request):
         user=request.user,
         date__range=[start_date, end_date],
         is_recurring_template=False,
+        is_dead=False,
     ).values('date').annotate(
         total=Count('id'),
         completed=Count('id', filter=Q(completed=True))
@@ -2217,12 +2265,14 @@ def calendar_view(request):
         user=request.user,
         date__range=[start_date, end_date],
         is_recurring_template=False,
+        is_dead=False,
     ).values('date', 'title', 'completed', 'tag', 'priority').order_by('date', 'created_at')
 
     # Recurring templates — project onto each day of the month they recur on
     recurring_templates = Task.objects.filter(
         user=request.user,
         is_recurring_template=True,
+        is_dead=False,
     ).exclude(recurrence_type='none')
 
     journals = JournalEntry.objects.filter(
@@ -2328,7 +2378,8 @@ def weekly_review(request):
     # Get week's tasks
     tasks = Task.objects.filter(
         user=request.user,
-        date__range=[start_of_week, end_of_week]
+        date__range=[start_of_week, end_of_week],
+        is_dead=False,
     )
     
     # Calculate statistics
@@ -2354,6 +2405,14 @@ def weekly_review(request):
         date__range=[start_of_week, end_of_week]
     ).order_by('date')
     
+    # Cleanup: unfinished tasks you can mark dead, and tasks already killed this week
+    cleanup_tasks = tasks.filter(completed=False, is_recurring_template=False)[:25]
+    dead_tasks = Task.objects.filter(
+        user=request.user,
+        is_dead=True,
+        dead_at__date__range=[start_of_week, end_of_week],
+    ).order_by('-dead_at').prefetch_related('notes')
+    
     context = {
         'start_of_week': start_of_week,
         'end_of_week': end_of_week,
@@ -2362,6 +2421,8 @@ def weekly_review(request):
         'completion_rate': completion_rate,
         'tag_stats': tag_stats,
         'journals': journals,
+        'cleanup_tasks': cleanup_tasks,
+        'dead_tasks': dead_tasks,
     }
     
     return render(request, 'core/weekly_review.html', context)
@@ -2381,7 +2442,8 @@ def monthly_review(request):
     # Get month's tasks with all related data
     tasks = Task.objects.filter(
         user=request.user,
-        date__range=[start_of_month, end_of_month]
+        date__range=[start_of_month, end_of_month],
+        is_dead=False,
     ).prefetch_related('subtasks', 'notes', 'links', 'task_goals__goal').order_by('date', 'created_at')
     
     # Calculate statistics
@@ -2429,6 +2491,16 @@ def monthly_review(request):
     next_month = month + 1 if month < 12 else 1
     next_year = year if month < 12 else year + 1
     
+    # Cleanup: unfinished tasks you can mark dead, and tasks already killed this month
+    cleanup_tasks = tasks.filter(completed=False, is_recurring_template=False)[:40]
+    dead_tasks = Task.objects.filter(
+        user=request.user,
+        is_dead=True,
+        dead_at__date__range=[start_of_month, end_of_month],
+    ).order_by('-dead_at').prefetch_related('notes')
+    dead_count = dead_tasks.count()
+    total_dead_count = Task.objects.filter(user=request.user, is_dead=True).count()
+    
     context = {
         'start_of_month': start_of_month,
         'end_of_month': end_of_month,
@@ -2446,6 +2518,10 @@ def monthly_review(request):
         'prev_year': prev_year,
         'next_month': next_month,
         'next_year': next_year,
+        'cleanup_tasks': cleanup_tasks,
+        'dead_tasks': dead_tasks,
+        'dead_count': dead_count,
+        'total_dead_count': total_dead_count,
     }
     
     return render(request, 'core/monthly_review.html', context)

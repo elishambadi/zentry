@@ -317,7 +317,18 @@ function runBreakdown() {
     headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
     body: JSON.stringify({})
   })
-  .then(r => r.json())
+  .then(async r => {
+    const text = await r.text();
+    let data = {};
+    try { data = JSON.parse(text); } catch {}
+    if (!r.ok) {
+      if (r.status === 504 || r.status === 502 || r.status === 524) {
+        throw new Error('The AI took too long to respond (gateway timeout). Please try again.');
+      }
+      throw new Error(data.error || `Server error (${r.status}). Please try again.`);
+    }
+    return data;
+  })
   .then(data => {
     hideEl('ws-loading');
     if (!data.success) {
@@ -364,8 +375,15 @@ function runGenerateTasks() {
     })
   })
   .then(async r => {
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || 'Server error.');
+    const text = await r.text();
+    let data = {};
+    try { data = JSON.parse(text); } catch {}
+    if (!r.ok) {
+      if (r.status === 504 || r.status === 502 || r.status === 524) {
+        throw new Error('The AI took too long to respond (gateway timeout). Please try again.');
+      }
+      throw new Error(data.error || `Server error (${r.status}). Please try again.`);
+    }
     return data;
   })
   .then(data => {
@@ -439,7 +457,13 @@ function addIdeaTask(ideaId, task, btn) {
     headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   })
-  .then(r => r.json())
+  .then(async r => {
+    const text = await r.text();
+    let data = {};
+    try { data = JSON.parse(text); } catch {}
+    if (!r.ok) throw new Error(data.error || 'Could not add task.');
+    return data;
+  })
   .then(data => {
     if (data.success) {
       btn.textContent = '✓ Added';
@@ -454,7 +478,7 @@ function addIdeaTask(ideaId, task, btn) {
     console.error(err);
     btn.disabled = false;
     btn.textContent = '+ Add';
-    alert('Network error. Please try again.');
+    alert(err.message || 'Network error. Please try again.');
   });
 }
 
