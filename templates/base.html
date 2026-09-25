@@ -337,8 +337,16 @@
             <!-- ── TAB: New Breakdown ── -->
             <div x-show="!drawerReduced && activeTab === 'form'" class="flex flex-col flex-1 overflow-hidden">
 
-                <!-- Form area -->
-                <div class="overflow-y-auto p-5 space-y-3 border-b border-gray-100">
+                <!-- Form area (goal setter — collapsible so it never hides the tasks) -->
+                <div class="border-b border-gray-100">
+                    <button
+                        @click="formCollapsed = !formCollapsed"
+                        class="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                    >
+                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Session details</span>
+                        <span class="text-gray-400 text-xs" x-text="formCollapsed ? '＋ Show' : '− Hide'"></span>
+                    </button>
+                    <div x-show="!formCollapsed" class="p-5 space-y-3 max-h-[45vh] overflow-y-auto">
 
                     <!-- Step 1: Goal or Idea selector -->
                     <section class="rounded-xl border border-gray-200 bg-white">
@@ -470,23 +478,25 @@
                         </div>
                     </section>
 
-                    <!-- Step 4: Clarifying answer -->
-                    <section x-show="awaitingClarification" class="rounded-xl border border-indigo-200 bg-indigo-50">
-                        <div class="px-4 py-3 space-y-3">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="text-xs font-semibold uppercase tracking-wide text-indigo-700">4 — Answer the clarifying question</span>
-                                <span class="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-indigo-700 border border-indigo-200">Required</span>
-                            </div>
-                            <p class="text-sm text-indigo-900" x-text="pendingClarifyingQuestion"></p>
-                            <textarea
-                                x-model="clarifyingAnswer"
-                                rows="3"
-                                class="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
-                                placeholder="Answer with the exact deliverable, tools, stack, constraints, or environment."
-                            ></textarea>
-                        </div>
-                    </section>
+                    </div>
                 </div>
+
+                <!-- Step 4: Clarifying answer — kept outside the collapsible form so it's always reachable -->
+                <section x-show="awaitingClarification" class="border-b border-indigo-200 bg-indigo-50">
+                    <div class="px-4 py-3 space-y-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-indigo-700">4 — Answer the clarifying question</span>
+                            <span class="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-indigo-700 border border-indigo-200">Required</span>
+                        </div>
+                        <p class="text-sm text-indigo-900" x-text="pendingClarifyingQuestion"></p>
+                        <textarea
+                            x-model="clarifyingAnswer"
+                            rows="3"
+                            class="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+                            placeholder="Answer with the exact deliverable, tools, stack, constraints, or environment."
+                        ></textarea>
+                    </div>
+                </section>
 
                 <!-- Submit -->
                 <div class="px-5 py-4 border-t border-gray-100 bg-white">
@@ -506,7 +516,7 @@
                 </div>
 
                 <!-- Results -->
-                <div id="zenai-messages" class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3">
+                <div id="zenai-messages" class="flex-1 min-h-0 overflow-y-auto bg-gray-50 p-4 space-y-3">
                     <template x-if="messages.length === 0">
                         <p class="text-center text-xs text-gray-400 pt-8">Your breakdown will appear here.</p>
                     </template>
@@ -719,6 +729,7 @@
                 pendingClarifyingQuestion: '',
                 clarifyingAnswer: '',
                 awaitingClarification: false,
+                formCollapsed: false,   // goal setter hidden so tasks get the drawer space
 
                 // Data
                 goals: [],
@@ -786,6 +797,7 @@
                 toggleZenAI() {
                     this.zenOpen = !this.zenOpen;
                     if (this.zenOpen) {
+                        if (this.messages.length === 0) this.formCollapsed = false;
                         this.fetchGoalsAndIdeas();
                         this.slotDate = new Date().toISOString().slice(0, 10);
                         this.fetchCalendarTasks();
@@ -855,6 +867,9 @@
                 },
                 async sendBreakdown() {
                     if (!this.subjectId || !this.slotDate || this.loading) return;
+
+                    // Collapse the goal setter so the tasks below are immediately visible.
+                    this.formCollapsed = true;
 
                     const label = this.subjectLabel || 'your goal';
                     const slotSummary = this.slotStart && this.slotEnd
