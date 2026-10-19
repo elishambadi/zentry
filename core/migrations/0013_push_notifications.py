@@ -6,6 +6,31 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+def drop_journal_unique_constraint(apps, schema_editor):
+    """Drop the outdated (user, date) constraint when it actually exists.
+
+    Some databases (including the production one this migration was written
+    for) never got the constraint, so an unconditional AlterUniqueTogether
+    fails with "0 constraints". Introspect first and only drop what is there.
+    """
+    if schema_editor.connection.vendor != 'postgresql':
+        return
+
+    table = 'core_journalentry'
+    with schema_editor.connection.cursor() as cursor:
+        constraints = schema_editor.connection.introspection.get_constraints(
+            cursor, table
+        )
+
+    quote = schema_editor.connection.ops.quote_name
+    for name, details in constraints.items():
+        columns = set(details.get('columns') or [])
+        if details.get('unique') and columns == {'user_id', 'date'}:
+            schema_editor.execute(
+                f'ALTER TABLE {quote(table)} DROP CONSTRAINT {quote(name)}'
+            )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -14,12 +39,23 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Align the database with the model: JournalEntry has not declared a
-        # (user, date) unique constraint since the feature was reworked to keep
-        # a journal history. This was outstanding model/migration drift.
-        migrations.AlterUniqueTogether(
-            name='journalentry',
-            unique_together=set(),
+        # The model has not declared a (user, date) unique constraint since the
+        # journal feature was reworked to keep a history of entries. Some
+        # databases never got that constraint, so only update migration state
+        # here; touching the schema would fail with "0 constraints".
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AlterUniqueTogether(
+                    name='journalentry',
+                    unique_together=set(),
+                ),
+            ],
+            database_operations=[
+                migrations.RunPython(
+                    drop_journal_unique_constraint,
+                    reverse_code=migrations.RunPython.noop,
+                ),
+            ],
         ),
         migrations.AddField(
             model_name='userpreference',
