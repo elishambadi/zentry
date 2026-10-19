@@ -45,6 +45,12 @@ from .models import (
     NotebookPage,
     NotebookBlock,
     NotebookComment,
+    PushSubscription,
+)
+from .push import (
+    deactivate_subscription,
+    push_is_configured,
+    send_push_to_user,
 )
 from .forms import (TaskForm, TaskEditForm, JournalForm, SubTaskForm, NoteForm, 
                     LinkForm, IdeaForm, GoalForm, DailyMoodForm, UserPreferenceForm,
@@ -1202,6 +1208,14 @@ def preferences_view(request):
             'default_page': preference_obj.default_page,
             'monthly_books': preference_obj.monthly_books,
             'favorite_authors': preference_obj.favorite_authors,
+            'push_enabled': preference_obj.push_enabled,
+            'pomodoro_notifications': preference_obj.pomodoro_notifications,
+            'daily_reminder_enabled': preference_obj.daily_reminder_enabled,
+            'daily_reminder_time': (
+                preference_obj.daily_reminder_time.strftime('%H:%M')
+                if preference_obj.daily_reminder_time else '08:00'
+            ),
+            'timezone': preference_obj.timezone or '',
             'saved_at': preference_obj.updated_at.strftime('%H:%M') if preference_obj.updated_at else '',
         }
 
@@ -1230,6 +1244,8 @@ def preferences_view(request):
     return render(request, 'core/preferences.html', {
         'form': form,
         'preferences_data': build_preferences_payload(preferences),
+        'push_configured': push_is_configured(),
+        'push_device_count': request.user.push_subscriptions.filter(is_active=True).count(),
     })
 
 
@@ -1951,6 +1967,7 @@ def pomodoro_view(request):
         'tasks_json': json.dumps(tasks_json),
         'today': today,
         'is_morning': is_morning,
+        'pomodoro_notifications': get_or_create_user_preferences(request.user).pomodoro_notifications,
     })
 
 
@@ -1975,12 +1992,176 @@ def pomodoro_complete_subtask(request, subtask_id):
 
 
 def pwa_manifest(request):
-    return render(request, 'manifest.json', content_type='application/manifest+json')
+    response = render(request, 'manifest.json', content_type='application/manifest+json')
+    response['Cache-Control'] = 'no-cache'
+    return response
 
 
 def service_worker(request):
     content = render_to_string('service-worker.js')
-    return HttpResponse(content, content_type='application/javascript')
+    response = HttpResponse(content, content_type='application/javascript')
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Service-Worker-Allowed'] = '/'
+    return response
+
+
+def offline(request):
+    """Self-contained offline fallback page precached by the service worker."""
+    return render(request, 'core/offline.html')
+
+
+# ── Web Push API ──────────────────────────────────────────────────────────────
+
+def _json_body(request):
+    try:
+        return json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+
+def _active_push_count(user):
+    return user.push_subscriptions.filter(is_active=True).count()
+
+
+@login_required
+def push_status(request):
+    preferences = get_or_create_user_preferences(request.user)
+    return JsonResponse({
+        'success': True,
+        'configured': push_is_configured(),
+        'device_count': _active_push_count(request.user),
+        'push_enabled': preferences.push_enabled,
+        'pomodoro_notifications': preferences.pomodoro_notifications,
+        'daily_reminder_enabled': preferences.daily_reminder_enabled,
+        'daily_reminder_time': (
+            preferences.daily_reminder_time.strftime('%H:%M')
+            if preferences.daily_reminder_time else '08:00'
+        ),
+    })
+
+
+@login_required
+@require_POST
+def push_subscribe(request):
+    """Store/refresh a browser PushSubscription for the signed-in user."""
+    data = _json_body(request)
+    if not isinstance(data, dict):
+        return JsonResponse({'success': False, 'error': 'Invalid JSON body.'}, status=400)
+
+    subscription = data.get('subscription', data)
+    if not isinstance(subscription, dict):
+        return JsonResponse({'success': False, 'error': 'Missing subscription object.'}, status=400)
+
+    endpoint = (subscription.get('endpoint') or '').strip()
+    keys = subscription.get('keys') or {}
+    p256dh = (keys.get('p256dh') or '').strip()
+    auth = (keys.get('auth') or '').strip()
+
+    parsed = urlparse(endpoint)
+    if parsed.scheme != 'https' or not parsed.netloc:
+        return JsonResponse(
+            {'success': False, 'error': 'A valid HTTPS push endpoint is required.'},
+            status=400,
+        )
+    if not p256dh or not auth:
+        return JsonResponse(
+            {'success': False, 'error': 'Subscription keys (p256dh/auth) are required.'},
+            status=400,
+        )
+    if len(endpoint) > 1024 or len(p256dh) > 255 or len(auth) > 255:
+        return JsonResponse({'success': False, 'error': 'Subscription data is too large.'}, status=400)
+
+    if not push_is_configured():
+        return JsonResponse(
+            {'success': False, 'error': 'Push notifications are not configured on this server.'},
+            status=503,
+        )
+
+    _, created = PushSubscription.objects.update_or_create(
+        endpoint=endpoint,
+        defaults={
+            'user': request.user,
+            'p256dh': p256dh,
+            'auth': auth,
+            'user_agent': (request.META.get('HTTP_USER_AGENT') or '')[:255],
+            'is_active': True,
+            'failure_count': 0,
+        },
+    )
+
+    preferences = get_or_create_user_preferences(request.user)
+    if not preferences.push_enabled:
+        preferences.push_enabled = True
+        preferences.save(update_fields=['push_enabled', 'updated_at'])
+
+    return JsonResponse({
+        'success': True,
+        'created': created,
+        'device_count': _active_push_count(request.user),
+    })
+
+
+@login_required
+@require_POST
+def push_unsubscribe(request):
+    """Deactivate a subscription when the browser (or user) opts out."""
+    data = _json_body(request)
+    if not isinstance(data, dict):
+        return JsonResponse({'success': False, 'error': 'Invalid JSON body.'}, status=400)
+
+    endpoint = (data.get('endpoint') or '').strip()
+    if endpoint:
+        deactivate_subscription(request.user, endpoint)
+    else:
+        request.user.push_subscriptions.filter(is_active=True).update(is_active=False)
+
+    preferences = get_or_create_user_preferences(request.user)
+    if _active_push_count(request.user) == 0:
+        preferences.push_enabled = False
+        preferences.save(update_fields=['push_enabled', 'updated_at'])
+
+    return JsonResponse({
+        'success': True,
+        'device_count': _active_push_count(request.user),
+    })
+
+
+@login_required
+@require_POST
+def push_test(request):
+    """Send a test push to every active device for the current user."""
+    if not push_is_configured():
+        return JsonResponse(
+            {'success': False, 'error': 'Push notifications are not configured on this server.'},
+            status=503,
+        )
+    if _active_push_count(request.user) == 0:
+        return JsonResponse(
+            {'success': False, 'error': 'No active push devices. Enable notifications first.'},
+            status=400,
+        )
+
+    stats = send_push_to_user(
+        request.user,
+        title='Zentry test notification',
+        body='Push notifications are working. You can now receive daily reminders.',
+        url=reverse('dashboard'),
+        tag='zentry-test',
+    )
+
+    sent = stats.get('sent', 0)
+    if sent == 0:
+        return JsonResponse({
+            'success': False,
+            'error': 'Could not deliver the notification. Try re-enabling notifications.',
+            'stats': stats,
+        }, status=502)
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Test notification sent to {sent} device{"s" if sent != 1 else ""}.',
+        'stats': stats,
+    })
 
 @login_required
 def daily_view(request, year, month, day):

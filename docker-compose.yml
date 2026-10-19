@@ -20,6 +20,11 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./staticfiles:/app/staticfiles
+    # The staticfiles volume shadows the image's collected assets, so collect
+    # them into the mounted directory before starting the server.
+    command: >
+      /bin/sh -c "python manage.py collectstatic --noinput &&
+      exec gunicorn --bind 0.0.0.0:8000 --timeout 120 --workers 2 coretrack.wsgi:application"
 
   cron:
     build: .
@@ -41,8 +46,9 @@ services:
     command: >
       /bin/sh -c "
       apt-get update && apt-get install -y cron &&
-      echo '0 3 * * * cd /app && python manage.py cleanup_dead_tasks >> /var/log/dead_tasks.log 2>&1' > /etc/cron.d/dead_tasks &&
-      chmod 0644 /etc/cron.d/dead_tasks &&
+      echo '0 3 * * * cd /app && python manage.py cleanup_dead_tasks >> /var/log/dead_tasks.log 2>&1' > /etc/cron.d/zentry &&
+      echo '*/5 * * * * cd /app && python manage.py send_daily_pushes >> /var/log/daily_pushes.log 2>&1' >> /etc/cron.d/zentry &&
+      chmod 0644 /etc/cron.d/zentry &&
       cron -f
       "
 

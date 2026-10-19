@@ -17,6 +17,7 @@ from .models import (
     NotebookPage,
     NotebookBlock,
     NotebookComment,
+    PushSubscription,
 )
 
 
@@ -116,9 +117,28 @@ class JournalEntryAdmin(admin.ModelAdmin):
 
 @admin.register(UserPreference)
 class UserPreferenceAdmin(admin.ModelAdmin):
-    list_display = ['user', 'default_page', 'updated_at']
-    list_filter = ['default_page', 'updated_at']
+    list_display = [
+        'user',
+        'default_page',
+        'push_enabled',
+        'daily_reminder_enabled',
+        'daily_reminder_time',
+        'updated_at',
+    ]
+    list_filter = ['default_page', 'push_enabled', 'daily_reminder_enabled', 'updated_at']
     search_fields = ['user__username', 'monthly_books', 'favorite_authors']
+
+
+@admin.register(PushSubscription)
+class PushSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ['user', 'short_endpoint', 'is_active', 'failure_count', 'created_at', 'last_used_at']
+    list_filter = ['is_active', 'created_at', 'last_used_at']
+    search_fields = ['user__username', 'endpoint', 'user_agent']
+    readonly_fields = ['created_at', 'updated_at', 'last_used_at']
+
+    def short_endpoint(self, obj):
+        return f'{obj.endpoint[:60]}...' if len(obj.endpoint) > 60 else obj.endpoint
+    short_endpoint.short_description = 'Endpoint'
 
 
 @admin.register(ZenChatSession)

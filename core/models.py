@@ -3,7 +3,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.urls import reverse
-from datetime import date
+from datetime import date, time
 
 class Task(models.Model):
     TAGS = [
@@ -244,10 +244,78 @@ class UserPreference(models.Model):
     default_page = models.CharField(max_length=20, choices=DEFAULT_PAGE_CHOICES, default='pomodoro')
     monthly_books = models.TextField(blank=True)
     favorite_authors = models.TextField(blank=True)
+
+    # ── Notifications ─────────────────────────────────────────────────────
+    push_enabled = models.BooleanField(
+        default=False,
+        help_text='Master switch for server-sent web push notifications.',
+    )
+    pomodoro_notifications = models.BooleanField(
+        default=True,
+        help_text='Show a system notification when a focus/break timer ends.',
+    )
+    daily_reminder_enabled = models.BooleanField(
+        default=False,
+        help_text='Send a daily digest push with the day\'s tasks.',
+    )
+    daily_reminder_time = models.TimeField(
+        default=time(8, 0),
+        help_text='Time of day for the daily digest (server time zone).',
+    )
+    timezone = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        help_text='IANA time zone supplied by the user\'s browser (e.g. Europe/Paris).',
+    )
+    last_daily_reminder_sent = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Last date a daily digest was sent, to avoid duplicates.',
+    )
+
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"Preferences - {self.user.username}"
+
+
+class PushSubscription(models.Model):
+    """A browser Web Push subscription belonging to a user."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='push_subscriptions',
+    )
+    endpoint = models.TextField(unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    user_agent = models.CharField(max_length=255, blank=True)
+    is_active = models.BooleanField(default=True)
+    failure_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"Push subscription - {self.user.username} - {self.endpoint[:48]}..."
+
+    @property
+    def subscription_info(self):
+        return {
+            'endpoint': self.endpoint,
+            'keys': {
+                'p256dh': self.p256dh,
+                'auth': self.auth,
+            },
+        }
 
 
 class ZenChatSession(models.Model):

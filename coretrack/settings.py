@@ -81,6 +81,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.pwa',
             ],
         },
     },
@@ -184,6 +185,18 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # Crispy Forms
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
 CRISPY_TEMPLATE_PACK = "tailwind"
+
+# ── Web Push / VAPID ──────────────────────────────────────────────────────────
+# Generate a key pair with: python manage.py generate_vapid_keys
+# Both keys must be set for push delivery to work. The private key may contain
+# literal "\n" sequences when supplied through an .env file; normalize them.
+VAPID_PUBLIC_KEY = config('VAPID_PUBLIC_KEY', default='').strip()
+VAPID_PRIVATE_KEY = (
+    config('VAPID_PRIVATE_KEY', default='')
+    .strip()
+    .replace('\\n', '\n')
+)
+VAPID_ADMIN_EMAIL = config('VAPID_ADMIN_EMAIL', default='admin@example.com').strip()
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 LOGGING = {

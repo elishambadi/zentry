@@ -25,6 +25,13 @@ urlpatterns = [
     path('zenai/calendar-tasks/', views.zenai_calendar_tasks, name='zenai_calendar_tasks'),
     path('manifest.json', views.pwa_manifest, name='pwa_manifest'),
     path('service-worker.js', views.service_worker, name='service_worker'),
+    path('offline/', views.offline, name='offline'),
+
+    # Web Push notifications
+    path('push/status/', views.push_status, name='push_status'),
+    path('push/subscribe/', views.push_subscribe, name='push_subscribe'),
+    path('push/unsubscribe/', views.push_unsubscribe, name='push_unsubscribe'),
+    path('push/test/', views.push_test, name='push_test'),
     
     # Task management
     path('task/toggle/<int:task_id>/', views.toggle_task, name='toggle_task'),

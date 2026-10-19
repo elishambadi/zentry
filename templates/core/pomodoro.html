@@ -3,6 +3,10 @@
 {% block title %}Focus — Zentry{% endblock %}
 
 {% block extra_head %}
+{{ block.super }}
+<script>
+  window.ZENTRY_POMODORO_NOTIFICATIONS = {{ pomodoro_notifications|yesno:"true,false" }};
+</script>
 <style>
   /* Make the base <main> a zero-padding container on this page */
   .ml-16 > main { padding: 0 !important; overflow: hidden; }
@@ -524,6 +528,18 @@ function onWorkEnd() {
   saveState();
   renderDisplay();
 
+  if (window.zentryNotify) {
+    window.zentryNotify.showNotification('Focus session complete', {
+      body: isLong
+        ? `Nice work${S.taskTitle ? ` on “${S.taskTitle}”` : ''}. Take a ${Math.round(breakSecs / 60)}-minute long break.`
+        : `Nice work${S.taskTitle ? ` on “${S.taskTitle}”` : ''}. Take a ${Math.round(breakSecs / 60)}-minute break.`,
+      tag: 'zentry-pomodoro-break',
+      url: '/pomodoro/',
+      requireInteraction: true,
+      requirePomodoroPreference: true,
+    });
+  }
+
   // Auto-start break
   startTimer();
 }
@@ -535,6 +551,16 @@ function onBreakEnd() {
   document.getElementById('break-skip-btn').classList.add('hidden');
   S.isRunning = false; S.isPaused = false;
   saveState();
+
+  if (window.zentryNotify) {
+    window.zentryNotify.showNotification('Break is over', {
+      body: 'Ready for the next focus session?',
+      tag: 'zentry-pomodoro-focus',
+      url: '/pomodoro/',
+      requireInteraction: true,
+      requirePomodoroPreference: true,
+    });
+  }
 }
 
 function endBreak() {

@@ -234,7 +234,15 @@ class JournalForm(forms.ModelForm):
 class UserPreferenceForm(forms.ModelForm):
     class Meta:
         model = UserPreference
-        fields = ['default_page', 'monthly_books', 'favorite_authors']
+        fields = [
+            'default_page',
+            'monthly_books',
+            'favorite_authors',
+            'pomodoro_notifications',
+            'daily_reminder_enabled',
+            'daily_reminder_time',
+            'timezone',
+        ]
         widgets = {
             'default_page': forms.Select(attrs={
                 'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent'
@@ -249,6 +257,17 @@ class UserPreferenceForm(forms.ModelForm):
                 'placeholder': 'Favorite authors, thinkers, or references...',
                 'rows': 3
             }),
+            'pomodoro_notifications': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500'
+            }),
+            'daily_reminder_enabled': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500'
+            }),
+            'daily_reminder_time': forms.TimeInput(format='%H:%M', attrs={
+                'type': 'time',
+                'class': 'px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent'
+            }),
+            'timezone': forms.HiddenInput(),
         }
 
 

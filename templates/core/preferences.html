@@ -13,6 +13,7 @@
 
   <form id="preferences-form" method="post" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-5">
     {% csrf_token %}
+    {{ form.timezone }}
 
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-2">Default landing page</label>
@@ -30,6 +31,38 @@
       {{ form.favorite_authors }}
     </div>
 
+    <div class="pt-4 border-t border-gray-100 space-y-4">
+      <div>
+        <h2 class="text-sm font-semibold text-gray-900">Alert preferences</h2>
+        <p class="text-xs text-gray-500 mt-1">System alerts require notification permission (enable it below).</p>
+      </div>
+
+      <label class="flex items-start gap-3 cursor-pointer">
+        {{ form.pomodoro_notifications }}
+        <span>
+          <span class="block text-sm font-medium text-gray-700">Focus timer alerts</span>
+          <span class="block text-xs text-gray-500">Show a system notification when a focus or break timer ends.</span>
+        </span>
+      </label>
+
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+        <label class="flex items-start gap-3 cursor-pointer flex-1">
+          {{ form.daily_reminder_enabled }}
+          <span>
+            <span class="block text-sm font-medium text-gray-700">Daily task digest</span>
+            <span class="block text-xs text-gray-500">Push a summary of today's tasks once a day.</span>
+          </span>
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-600">
+          <span class="text-xs text-gray-500">at</span>
+          {{ form.daily_reminder_time }}
+        </label>
+      </div>
+      <p class="text-xs text-gray-500">
+        Daily reminders use your device time zone (<span id="notify-timezone-label">detecting…</span>).
+      </p>
+    </div>
+
     <div class="pt-2">
       <button id="preferences-submit" type="submit" class="bg-primary-500 hover:bg-primary-600 text-white rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60">
         Save Preferences
@@ -37,6 +70,58 @@
       <p id="preferences-saved-at" class="mt-2 text-xs text-gray-500"></p>
     </div>
   </form>
+
+  <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h2 class="text-sm font-semibold text-gray-900">Notifications</h2>
+        <p class="text-xs text-gray-500 mt-1">Enable browser alerts and push notifications on this device.</p>
+      </div>
+      <span id="notify-permission-pill" class="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-600">
+        Checking…
+      </span>
+    </div>
+
+    <div id="notify-unsupported" class="hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+      This browser does not support notifications. On iPhone/iPad, install Zentry to your Home Screen first, then enable alerts.
+    </div>
+
+    <div id="notify-status" class="hidden rounded-lg px-3 py-2 text-xs" aria-live="polite"></div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <button id="notify-enable" type="button"
+              class="rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-60">
+        Enable notifications
+      </button>
+      <button id="notify-test" type="button"
+              class="hidden rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">
+        Send test notification
+      </button>
+      <button id="notify-disable" type="button"
+              class="hidden rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60">
+        Disable on this device
+      </button>
+    </div>
+
+    <p id="notify-devices" class="text-xs text-gray-500"></p>
+    <p id="notify-push-note" class="hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+      Server push keys are not configured, so daily digests are unavailable. Timer alerts still work on this device.
+    </p>
+  </section>
+
+  <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+    <div>
+      <h2 class="text-sm font-semibold text-gray-900">Install app</h2>
+      <p class="text-xs text-gray-500 mt-1">Use Zentry full-screen from your home screen or desktop.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button id="install-app" type="button"
+              class="rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800 disabled:opacity-60">
+        Install Zentry
+      </button>
+      <span id="install-app-status" class="text-xs text-gray-500" aria-live="polite"></span>
+    </div>
+  </section>
 </div>
 {% endblock %}
 
@@ -63,6 +148,18 @@
       preferencesData = {};
     }
 
+    const detectedTimezone = (function () {
+      try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      } catch (error) {
+        return '';
+      }
+    })();
+    const timezoneLabel = document.getElementById('notify-timezone-label');
+    if (timezoneLabel) {
+      timezoneLabel.textContent = detectedTimezone || 'server time zone';
+    }
+
     function hydrateForm(preferences) {
       if (form.elements.default_page) {
         form.elements.default_page.value = preferences.default_page || 'pomodoro';
@@ -72,6 +169,26 @@
       }
       if (form.elements.favorite_authors) {
         form.elements.favorite_authors.value = preferences.favorite_authors || '';
+      }
+      if (form.elements.pomodoro_notifications) {
+        form.elements.pomodoro_notifications.checked = preferences.pomodoro_notifications !== false;
+      }
+      if (form.elements.daily_reminder_enabled) {
+        form.elements.daily_reminder_enabled.checked = Boolean(preferences.daily_reminder_enabled);
+      }
+      if (form.elements.daily_reminder_time) {
+        form.elements.daily_reminder_time.value = preferences.daily_reminder_time || '08:00';
+      }
+      if (form.elements.timezone) {
+        form.elements.timezone.value = detectedTimezone || preferences.timezone || '';
+      }
+      try {
+        window.localStorage.setItem(
+          'zentry-pomodoro-notifications',
+          preferences.pomodoro_notifications === false ? 'false' : 'true'
+        );
+      } catch (error) {
+        // localStorage may be unavailable in private modes.
       }
       savedAt.textContent = preferences.saved_at ? `Saved at ${preferences.saved_at}` : '';
     }
@@ -125,6 +242,200 @@
         submitButton.textContent = 'Save Preferences';
       }
     });
+
+    // ── Notifications ────────────────────────────────────────────────────
+    const notify = window.zentryNotify;
+    const permissionPill = document.getElementById('notify-permission-pill');
+    const notifyUnsupported = document.getElementById('notify-unsupported');
+    const notifyStatus = document.getElementById('notify-status');
+    const notifyEnable = document.getElementById('notify-enable');
+    const notifyTest = document.getElementById('notify-test');
+    const notifyDisable = document.getElementById('notify-disable');
+    const notifyDevices = document.getElementById('notify-devices');
+    const notifyPushNote = document.getElementById('notify-push-note');
+    const dailyReminderToggle = form.elements.daily_reminder_enabled;
+
+    function setNotifyStatus(message, variant) {
+      if (!notifyStatus) return;
+      notifyStatus.classList.remove(
+        'hidden', 'border', 'bg-green-50', 'border-green-200', 'text-green-800',
+        'bg-red-50', 'border-red-200', 'text-red-800',
+        'bg-gray-50', 'border-gray-200', 'text-gray-700'
+      );
+      notifyStatus.classList.add('border');
+      if (variant === 'success') {
+        notifyStatus.classList.add('bg-green-50', 'border-green-200', 'text-green-800');
+      } else if (variant === 'error') {
+        notifyStatus.classList.add('bg-red-50', 'border-red-200', 'text-red-800');
+      } else {
+        notifyStatus.classList.add('bg-gray-50', 'border-gray-200', 'text-gray-700');
+      }
+      notifyStatus.textContent = message;
+    }
+
+    function updatePermissionPill(permission) {
+      if (!permissionPill) return;
+      permissionPill.classList.remove('bg-gray-100', 'text-gray-600', 'bg-green-100', 'text-green-700', 'bg-red-100', 'text-red-700');
+      if (permission === 'granted') {
+        permissionPill.textContent = 'Allowed';
+        permissionPill.classList.add('bg-green-100', 'text-green-700');
+      } else if (permission === 'denied') {
+        permissionPill.textContent = 'Blocked';
+        permissionPill.classList.add('bg-red-100', 'text-red-700');
+      } else if (permission === 'unsupported') {
+        permissionPill.textContent = 'Unsupported';
+        permissionPill.classList.add('bg-gray-100', 'text-gray-600');
+      } else {
+        permissionPill.textContent = 'Not enabled';
+        permissionPill.classList.add('bg-gray-100', 'text-gray-600');
+      }
+    }
+
+    function renderNotificationState(state) {
+      if (!state) return;
+      const permission = state.permission || (notify ? notify.getPermission() : 'unsupported');
+      updatePermissionPill(permission);
+
+      const deviceCount = state.deviceCount || 0;
+      const configured = Boolean(state.configured);
+
+      if (notifyEnable) {
+        const shouldShow = permission !== 'granted' || (configured && deviceCount === 0);
+        notifyEnable.classList.toggle('hidden', !shouldShow);
+        notifyEnable.textContent = configured ? 'Enable notifications' : 'Enable browser alerts';
+      }
+      if (notifyTest) {
+        notifyTest.classList.toggle('hidden', deviceCount === 0);
+      }
+      if (notifyDisable) {
+        notifyDisable.classList.toggle('hidden', deviceCount === 0);
+      }
+      if (notifyDevices) {
+        notifyDevices.textContent = deviceCount > 0
+          ? `${deviceCount} device${deviceCount === 1 ? '' : 's'} subscribed to push notifications.`
+          : '';
+      }
+      if (notifyPushNote) {
+        notifyPushNote.classList.toggle('hidden', configured);
+      }
+      if (dailyReminderToggle) {
+        dailyReminderToggle.disabled = !configured;
+        dailyReminderToggle.title = configured
+          ? ''
+          : 'Daily digests require server push keys.';
+      }
+      if (notifyUnsupported) {
+        notifyUnsupported.classList.toggle('hidden', Boolean(notify && notify.supported()));
+      }
+    }
+
+    if (!notify || !notify.supported()) {
+      if (permissionPill) permissionPill.textContent = 'Unsupported';
+      if (notifyUnsupported) notifyUnsupported.classList.remove('hidden');
+      [notifyEnable, notifyTest, notifyDisable].forEach((button) => {
+        if (button) button.classList.add('hidden');
+      });
+    } else {
+      notify.refreshStatus().then(renderNotificationState);
+      window.addEventListener('zentry:notifications-status', function (event) {
+        renderNotificationState(event.detail);
+      });
+
+      if (notifyEnable) {
+        notifyEnable.addEventListener('click', async function () {
+          notifyEnable.disabled = true;
+          const original = notifyEnable.textContent;
+          notifyEnable.textContent = 'Enabling…';
+          try {
+            const result = await notify.enableNotifications();
+            setNotifyStatus(result.message, 'success');
+            const state = await notify.refreshStatus();
+            renderNotificationState(state);
+          } catch (error) {
+            setNotifyStatus(error.message || 'Could not enable notifications.', 'error');
+          } finally {
+            notifyEnable.disabled = false;
+            notifyEnable.textContent = original;
+          }
+        });
+      }
+
+      if (notifyTest) {
+        notifyTest.addEventListener('click', async function () {
+          notifyTest.disabled = true;
+          const original = notifyTest.textContent;
+          notifyTest.textContent = 'Sending…';
+          try {
+            const data = await notify.sendTestNotification();
+            setNotifyStatus(data.message || 'Test notification sent.', 'success');
+          } catch (error) {
+            setNotifyStatus(error.message || 'Could not send the test notification.', 'error');
+          } finally {
+            notifyTest.disabled = false;
+            notifyTest.textContent = original;
+          }
+        });
+      }
+
+      if (notifyDisable) {
+        notifyDisable.addEventListener('click', async function () {
+          notifyDisable.disabled = true;
+          try {
+            const result = await notify.disableNotifications();
+            setNotifyStatus(result.message, 'success');
+            const state = await notify.refreshStatus();
+            renderNotificationState(state);
+          } catch (error) {
+            setNotifyStatus(error.message || 'Could not disable notifications.', 'error');
+          } finally {
+            notifyDisable.disabled = false;
+          }
+        });
+      }
+    }
+
+    // ── Install app ──────────────────────────────────────────────────────
+    const installButton = document.getElementById('install-app');
+    const installStatus = document.getElementById('install-app-status');
+    const pwa = window.zentryPWA;
+
+    function renderInstallState() {
+      if (!installButton || !pwa) return;
+      if (pwa.isStandalone()) {
+        installButton.disabled = true;
+        installButton.textContent = 'Installed';
+        if (installStatus) installStatus.textContent = 'Zentry is running as an installed app.';
+      } else if (pwa.canInstall()) {
+        installButton.disabled = false;
+        installButton.textContent = 'Install Zentry';
+        if (installStatus) installStatus.textContent = '';
+      } else if (pwa.isIos()) {
+        installButton.disabled = false;
+        installButton.textContent = 'Show install steps';
+        if (installStatus) installStatus.textContent = 'On iOS, install from Safari via Share → Add to Home Screen.';
+      } else {
+        installButton.disabled = false;
+        installButton.textContent = 'Install Zentry';
+        if (installStatus) installStatus.textContent = 'Your browser will offer install once the app is ready.';
+      }
+    }
+
+    if (installButton && pwa) {
+      renderInstallState();
+      window.addEventListener('zentry:install-available', renderInstallState);
+
+      installButton.addEventListener('click', async function () {
+        const result = await pwa.promptInstall();
+        if (result === 'ios-instructions') {
+          if (installStatus) installStatus.textContent = 'Tap Share in Safari, then choose “Add to Home Screen”.';
+        } else if (result === 'unavailable') {
+          if (installStatus) installStatus.textContent = 'Use your browser menu → “Install app” or “Add to Home Screen”.';
+        } else if (result === 'accepted') {
+          if (installStatus) installStatus.textContent = 'Zentry installed.';
+        }
+        renderInstallState();
+      });
+    }
   });
 </script>
 {% endblock %}
