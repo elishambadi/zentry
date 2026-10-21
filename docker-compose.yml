@@ -24,7 +24,7 @@ services:
     # them into the mounted directory before starting the server.
     command: >
       /bin/sh -c "python manage.py collectstatic --noinput &&
-      exec gunicorn --bind 0.0.0.0:8000 --timeout 120 --workers 2 coretrack.wsgi:application"
+      exec gunicorn --bind 0.0.0.0:8000 --timeout 300 --workers 2 coretrack.wsgi:application"
 
   cron:
     build: .

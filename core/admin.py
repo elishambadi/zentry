@@ -185,14 +185,19 @@ class NotebookPageAdmin(admin.ModelAdmin):
 
 @admin.register(NotebookBlock)
 class NotebookBlockAdmin(admin.ModelAdmin):
-    list_display = ['get_page_title', 'title', 'created_at', 'updated_at']
-    list_filter = ['created_at', 'updated_at']
-    search_fields = ['title', 'body', 'page__title', 'page__notebook__title', 'page__notebook__user__username']
+    list_display = ['get_page_title', 'title', 'has_audio', 'transcription_source', 'created_at', 'updated_at']
+    list_filter = ['created_at', 'updated_at', 'transcription_source']
+    search_fields = ['title', 'body', 'audio_transcript', 'page__title', 'page__notebook__title', 'page__notebook__user__username']
     inlines = [NotebookCommentInline]
-    
+
     def get_page_title(self, obj):
         return obj.page.display_title
     get_page_title.short_description = 'Page'
+
+    def has_audio(self, obj):
+        return bool(obj.audio)
+    has_audio.boolean = True
+    has_audio.short_description = 'Audio'
 
 
 @admin.register(NotebookComment)

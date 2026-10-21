@@ -138,7 +138,7 @@
                                 <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ task.get_priority_display }}</span>
                             </div>
                         </div>
-                        <div class="flex items-center gap-1 opacity-70 group-hover:opacity-100">
+                        <div class="hidden md:flex items-center gap-1 opacity-70 group-hover:opacity-100">
                             <a href="{% url 'edit_task' task.id %}" class="text-xs text-blue-500 hover:text-blue-700">Edit</a>
                             <button onclick="carryTask({{ task.id }})" class="text-xs text-amber-500 hover:text-amber-700">Carry</button>
                             <button onclick="killTask({{ task.id }})" class="text-xs text-red-400 hover:text-red-600" title="Mark dead — stops recurring and carrying forward">Dead</button>
@@ -147,6 +147,25 @@
                             {% endif %}
                             <button onclick="deleteTask({{ task.id }})" class="text-xs text-red-500 hover:text-red-700">Delete</button>
                         </div>
+
+                        {# Mobile: collapse secondary actions so the task title keeps its width. #}
+                        <details data-task-menu class="relative md:hidden shrink-0">
+                            <summary class="list-none [&::-webkit-details-marker]:hidden h-8 w-8 inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer"
+                                     aria-label="Task actions" title="Task actions">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                    <circle cx="4" cy="10" r="1.6"/><circle cx="10" cy="10" r="1.6"/><circle cx="16" cy="10" r="1.6"/>
+                                </svg>
+                            </summary>
+                            <div class="absolute right-0 top-full mt-1 z-30 w-44 rounded-xl border border-gray-200 bg-white p-1 shadow-lg">
+                                <a href="{% url 'edit_task' task.id %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">✏️ Edit</a>
+                                <button onclick="carryTask({{ task.id }}); this.closest('details').open=false" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-left text-amber-700 hover:bg-amber-50">↪️ Carry to tomorrow</button>
+                                <button onclick="killTask({{ task.id }}); this.closest('details').open=false" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-left text-red-600 hover:bg-red-50">🪦 Mark dead</button>
+                                {% if task.recurrence_source or task.is_recurring_template %}
+                                <button onclick="deleteTaskSeries({{ task.id }}); this.closest('details').open=false" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-left text-red-700 hover:bg-red-50">🗑️ Delete all</button>
+                                {% endif %}
+                                <button onclick="deleteTask({{ task.id }}); this.closest('details').open=false" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-left text-red-500 hover:bg-red-50">✕ Delete</button>
+                            </div>
+                        </details>
                     </div>
 
                     <!-- Subtasks -->
@@ -404,5 +423,12 @@ function deleteSubtask(subtaskId, taskId) {
         }
     });
 }
+
+// Close mobile task action menus when tapping outside them.
+document.addEventListener('click', function (event) {
+    document.querySelectorAll('details[data-task-menu][open]').forEach(function (menu) {
+        if (!menu.contains(event.target)) menu.open = false;
+    });
+});
 </script>
 {% endblock %}

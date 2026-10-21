@@ -307,7 +307,7 @@ class NotebookPageForm(forms.ModelForm):
 class NotebookBlockForm(forms.ModelForm):
     class Meta:
         model = NotebookBlock
-        fields = ['title', 'body', 'emoji', 'image', 'image_url', 'link_url']
+        fields = ['title', 'body', 'emoji', 'image', 'image_url', 'link_url', 'audio']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
@@ -332,6 +332,10 @@ class NotebookBlockForm(forms.ModelForm):
             'link_url': forms.URLInput(attrs={
                 'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
                 'placeholder': 'https://... link for preview (optional)'
+            }),
+            'audio': forms.ClearableFileInput(attrs={
+                'accept': 'audio/*',
+                'class': 'w-full text-sm text-gray-600 file:mr-3 file:px-3 file:py-2 file:border-0 file:rounded-md file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200'
             }),
         }
 

@@ -65,6 +65,7 @@ urlpatterns = [
     path('notebooks/', views.notebooks_workdesk, name='notebooks'),
     path('notebooks/<int:notebook_id>/page/create/', views.notebook_page_create, name='notebook_page_create'),
     path('notebooks/page/<int:page_id>/block/create/', views.notebook_block_create, name='notebook_block_create'),
+    path('notebooks/block/<int:block_id>/transcribe/', views.notebook_block_transcribe, name='notebook_block_transcribe'),
     path('notebooks/block/<int:block_id>/comment/', views.notebook_comment_create, name='notebook_comment_create'),
     path('notebooks/<int:notebook_id>/print/', views.notebook_print, name='notebook_print'),
     path('notebooks/page/<int:page_id>/publish/', views.publish_notebook_page, name='publish_notebook_page'),

@@ -372,12 +372,18 @@
             {% for block in page.blocks.all %}
               <article class="note-block">
                 <h3 class="note-block-title">
-                  {% if block.emoji %}{{ block.emoji }} {% endif %}{{ block.title|default:'Untitled thought' }}
+                  {% if block.emoji %}{{ block.emoji }} {% endif %}{% if block.title %}{{ block.title }}{% elif block.audio %}Voice note{% else %}Untitled thought{% endif %}
                 </h3>
                 <p class="note-block-meta">{{ block.created_at|date:'j M Y · H:i' }}</p>
 
                 {% if block.body %}
                   <div class="published-body">{{ block.body|safe }}</div>
+                {% endif %}
+
+                {% if block.audio_transcript %}
+                  <div class="published-body">{{ block.audio_transcript|linebreaksbr }}</div>
+                {% elif block.audio %}
+                  <p class="note-block-meta">Voice note attached (listen on the web version).</p>
                 {% endif %}
 
                 {% if block.image %}

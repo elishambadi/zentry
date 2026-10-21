@@ -133,13 +133,13 @@
 
 {% block content %}
 <div id="notebook-app" class="min-h-[calc(100vh-7rem)] flex flex-col">
-  <div class="flex items-center justify-between px-6 py-3 border-b border-gray-100 sticky top-0 z-10 bg-white/70 backdrop-blur-sm">
-    <div>
+  <div class="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 py-3 border-b border-gray-100 sticky top-0 z-10 bg-white/70 backdrop-blur-sm">
+    <div class="min-w-0">
       <p class="text-xs uppercase tracking-widest text-gray-400 mb-1">{{ selected_page.page_date|date:'l, j F Y' }}</p>
-      <h1 class="text-lg font-semibold text-gray-900">{{ selected_page.display_title }}</h1>
+      <h1 class="text-lg font-semibold text-gray-900 truncate">{{ selected_page.display_title }}</h1>
     </div>
 
-    <div class="flex items-center gap-1.5">
+    <div class="flex items-center gap-1.5 flex-wrap shrink-0">
       {% if selected_page.is_public %}
       <div class="text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-md">Published</div>
       {% endif %}
@@ -171,15 +171,15 @@
     </div>
   </div>
 
-  <div class="w-full max-w-3xl px-6 py-8 mx-auto">
+  <div class="w-full max-w-3xl px-4 sm:px-6 py-8 mx-auto">
     {% if blocks %}
       <div class="space-y-8" id="notes-stream">
         {% for block in blocks %}
         <article id="block-{{ block.id }}" class="pb-8 border-b border-gray-100 last:border-0">
           <div class="flex items-start justify-between gap-3 mb-3">
             <div>
-              {% if block.emoji or block.title %}
-              <h3 class="text-xl font-semibold text-gray-900">{% if block.emoji %}{{ block.emoji }} {% endif %}{{ block.title|default:'Untitled thought' }}</h3>
+              {% if block.emoji or block.title or block.audio %}
+              <h3 class="text-xl font-semibold text-gray-900">{% if block.emoji %}{{ block.emoji }} {% endif %}{% if block.title %}{{ block.title }}{% elif block.audio %}Voice note{% else %}Untitled thought{% endif %}</h3>
               {% endif %}
               <p class="text-xs text-gray-400 mt-1">{{ block.created_at|date:'j M Y · H:i' }}</p>
             </div>
@@ -187,6 +187,34 @@
 
           {% if block.body %}
           <div class="notebook-body text-base text-gray-700 leading-relaxed my-4">{{ block.body|safe }}</div>
+          {% endif %}
+
+          {% if block.audio %}
+          <div class="my-4 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3" id="audio-note-{{ block.id }}">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                🎙 Voice note{% if block.audio_duration %} · {{ block.audio_duration|floatformat:0 }} sec{% endif %}
+              </p>
+              {% if not block.audio_transcript %}
+              <button type="button"
+                      class="retry-transcription-btn rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-50"
+                      data-block-id="{{ block.id }}">
+                Transcribe
+              </button>
+              {% endif %}
+            </div>
+            <audio controls preload="metadata" class="w-full" src="{{ block.audio.url }}"></audio>
+            <div id="transcript-{{ block.id }}" class="mt-3">
+              {% if block.audio_transcript %}
+              <p class="whitespace-pre-line text-sm leading-relaxed text-gray-700">{{ block.audio_transcript|linebreaksbr }}</p>
+              <p class="mt-1 text-[10px] text-gray-400">
+                Transcribed{% if block.transcription_source %} with {{ block.transcription_source }}{% endif %}
+              </p>
+              {% else %}
+              <p class="text-xs text-amber-700">No transcript yet. You can still play the recording.</p>
+              {% endif %}
+            </div>
+          </div>
           {% endif %}
 
           {% if block.image %}
@@ -221,8 +249,15 @@
     {% endif %}
 
     <section id="composer" class="pt-10">
-      <div class="pb-10 border-b border-gray-100 flex justify-center">
+      <div class="pb-10 border-b border-gray-100 flex flex-wrap justify-center gap-2">
         <button id="open-write-modal-btn" type="button" title="Open focused writing modal" class="px-5 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors">Write something</button>
+        <button id="open-record-modal-btn" type="button" title="Record a voice note" class="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="2" width="6" height="12" rx="3"></rect>
+            <path d="M5 10a7 7 0 0 0 14 0M12 19v3M8 22h8"></path>
+          </svg>
+          Record
+        </button>
       </div>
 
       <div class="pt-8 flex justify-center">
@@ -324,6 +359,79 @@
         <div class="mt-auto pt-4 flex justify-end gap-2">
           <button id="dismiss-write-btn" type="button" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">Cancel</button>
           <button type="submit" title="Publish to this page" class="px-5 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">Publish</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="record-modal-backdrop" class="hidden fixed inset-0 z-30 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50">
+    <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col border border-gray-200 overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">Record a voice note</h2>
+          <p class="text-xs text-gray-500 mt-0.5">The audio is kept and transcribed when possible.</p>
+        </div>
+        <button id="close-record-modal-btn" type="button" title="Close" class="h-9 w-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-50">✕</button>
+      </div>
+
+      <form id="voice-note-form" method="post" enctype="multipart/form-data"
+            action="{% url 'notebook_block_create' selected_page.id %}"
+            class="flex-1 overflow-y-auto p-5 space-y-4">
+        {% csrf_token %}
+        <div>
+          <label for="voice-note-title" class="block text-xs font-medium text-gray-600 mb-1">Title (optional)</label>
+          <input id="voice-note-title" type="text" name="title" maxlength="200"
+                 placeholder="e.g. Morning reflection"
+                 class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        </div>
+
+        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <button id="record-start-btn" type="button"
+                    class="inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors">
+              <span class="h-2.5 w-2.5 rounded-full bg-white"></span>
+              Start recording
+            </button>
+            <button id="record-stop-btn" type="button"
+                    class="hidden inline-flex items-center gap-2 rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 transition-colors">
+              <span class="h-2.5 w-2.5 rounded-sm bg-white"></span>
+              Stop
+            </button>
+            <span id="record-timer" class="font-mono text-lg font-semibold text-gray-700 tabular-nums">00:00</span>
+          </div>
+          <p id="record-status" class="text-xs text-gray-500" aria-live="polite">Tap start and speak.</p>
+          <audio id="record-preview" class="hidden w-full" controls preload="metadata"></audio>
+        </div>
+
+        <div>
+          <label for="record-transcript" class="block text-xs font-medium text-gray-600 mb-1">
+            Transcript (optional)
+          </label>
+          <textarea id="record-transcript" name="browser_transcript" rows="4"
+                    placeholder="A live/on-device transcript can appear here. The server will refine it when a transcription engine is configured."
+                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-y"></textarea>
+        </div>
+
+        <input type="hidden" name="audio_duration" id="audio-duration" value="">
+        <input type="hidden" name="emoji" value="🎙">
+
+        <p class="text-[11px] leading-relaxed text-gray-500">
+          {% if transcription_available %}
+          Transcription engine: <span class="font-medium text-gray-700">{{ transcription_backend }}</span>.
+          {% else %}
+          No server transcription engine is configured. The recording will still be saved; install a Whisper
+          backend or set <code class="text-[10px]">OPENAI_API_KEY</code>, then use “Transcribe” on the note.
+          {% endif %}
+          Maximum upload: {{ max_audio_mb }} MB.
+        </p>
+
+        <div class="flex justify-end gap-2 pt-1">
+          <button id="record-cancel-btn" type="button" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">Cancel</button>
+          <button id="record-save-btn" type="submit"
+                  class="px-5 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled>
+            Save voice note
+          </button>
         </div>
       </form>
     </div>
@@ -525,6 +633,362 @@
       }
     });
   }
+
+  // ── Voice notes ─────────────────────────────────────────────────────────
+  const TRANSCRIPTION_AVAILABLE = {{ transcription_available|yesno:"true,false" }};
+  const MAX_RECORD_SECONDS = 600;
+
+  const recordBackdrop = document.getElementById('record-modal-backdrop');
+  const openRecordBtn = document.getElementById('open-record-modal-btn');
+  const closeRecordBtn = document.getElementById('close-record-modal-btn');
+  const recordCancelBtn = document.getElementById('record-cancel-btn');
+  const recordStartBtn = document.getElementById('record-start-btn');
+  const recordStopBtn = document.getElementById('record-stop-btn');
+  const recordTimer = document.getElementById('record-timer');
+  const recordStatus = document.getElementById('record-status');
+  const recordPreview = document.getElementById('record-preview');
+  const recordTranscript = document.getElementById('record-transcript');
+  const audioDurationInput = document.getElementById('audio-duration');
+  const recordSaveBtn = document.getElementById('record-save-btn');
+  const voiceForm = document.getElementById('voice-note-form');
+
+  let recorder = null;
+  let recordStream = null;
+  let recordChunks = [];
+  let recordedBlob = null;
+  let recordStartedAt = 0;
+  let recordTimerId = null;
+  let recordObjectUrl = '';
+  let speechRecognition = null;
+  let browserTranscript = '';
+
+  function setRecordStatus(message, tone) {
+    if (!recordStatus) return;
+    recordStatus.textContent = message;
+    recordStatus.classList.remove('text-gray-500', 'text-indigo-700', 'text-red-600', 'text-amber-600');
+    recordStatus.classList.add(
+      tone === 'error' ? 'text-red-600'
+        : tone === 'warning' ? 'text-amber-600'
+          : tone === 'active' ? 'text-indigo-700'
+            : 'text-gray-500'
+    );
+  }
+
+  function formatRecordTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+
+  function stopRecordTracks() {
+    if (recordStream) {
+      recordStream.getTracks().forEach((track) => track.stop());
+      recordStream = null;
+    }
+  }
+
+  function stopBrowserSpeech() {
+    if (speechRecognition) {
+      speechRecognition.onresult = null;
+      speechRecognition.onerror = null;
+      try { speechRecognition.stop(); } catch (error) {}
+      speechRecognition = null;
+    }
+  }
+
+  function startBrowserSpeech() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition || TRANSCRIPTION_AVAILABLE) return;
+
+    try {
+      speechRecognition = new SpeechRecognition();
+      speechRecognition.continuous = true;
+      speechRecognition.interimResults = true;
+      speechRecognition.lang = navigator.language || 'en-US';
+      speechRecognition.onresult = function (event) {
+        let finalText = '';
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          if (event.results[i].isFinal) {
+            finalText += `${event.results[i][0].transcript} `;
+          }
+        }
+        if (finalText.trim()) {
+          browserTranscript = `${browserTranscript} ${finalText}`.trim();
+          if (recordTranscript) recordTranscript.value = browserTranscript;
+        }
+      };
+      speechRecognition.onerror = function () {};
+      speechRecognition.start();
+    } catch (error) {
+      speechRecognition = null;
+    }
+  }
+
+  function resetRecordingUI() {
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = null;
+      try { recorder.stop(); } catch (error) {}
+    }
+    recorder = null;
+    stopRecordTracks();
+    stopBrowserSpeech();
+    if (recordTimerId) {
+      clearInterval(recordTimerId);
+      recordTimerId = null;
+    }
+
+    recordChunks = [];
+    recordedBlob = null;
+    recordStartedAt = 0;
+    browserTranscript = '';
+    if (recordTranscript) recordTranscript.value = '';
+    if (audioDurationInput) audioDurationInput.value = '';
+
+    if (recordObjectUrl) {
+      URL.revokeObjectURL(recordObjectUrl);
+      recordObjectUrl = '';
+    }
+    if (recordPreview) {
+      recordPreview.pause();
+      recordPreview.removeAttribute('src');
+      recordPreview.load();
+      recordPreview.classList.add('hidden');
+    }
+    if (recordTimer) recordTimer.textContent = '00:00';
+    if (recordStartBtn) {
+      recordStartBtn.classList.remove('hidden');
+      recordStartBtn.innerHTML = '<span class="h-2.5 w-2.5 rounded-full bg-white"></span> Start recording';
+    }
+    if (recordStopBtn) recordStopBtn.classList.add('hidden');
+    if (recordSaveBtn) {
+      recordSaveBtn.disabled = true;
+      recordSaveBtn.textContent = 'Save voice note';
+    }
+    setRecordStatus('Tap start and speak.', 'idle');
+  }
+
+  function openRecordModal() {
+    if (!recordBackdrop) return;
+    resetRecordingUI();
+    recordBackdrop.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('voice-note-title')?.focus();
+  }
+
+  function closeRecordModal() {
+    resetRecordingUI();
+    recordBackdrop?.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  function chooseAudioMimeType() {
+    if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== 'function') return '';
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4;codecs=mp4a.40.2',
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+    ];
+    return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+  }
+
+  function finishRecording() {
+    stopRecordTracks();
+    stopBrowserSpeech();
+    if (recordTimerId) {
+      clearInterval(recordTimerId);
+      recordTimerId = null;
+    }
+
+    const durationSeconds = Math.max(1, Math.round((Date.now() - recordStartedAt) / 1000));
+    const mimeType = (recorder && recorder.mimeType) || (recordChunks[0] && recordChunks[0].type) || 'audio/webm';
+    recordedBlob = new Blob(recordChunks, { type: mimeType });
+
+    if (recordObjectUrl) URL.revokeObjectURL(recordObjectUrl);
+    recordObjectUrl = URL.createObjectURL(recordedBlob);
+    if (recordPreview) {
+      recordPreview.src = recordObjectUrl;
+      recordPreview.classList.remove('hidden');
+    }
+    if (audioDurationInput) audioDurationInput.value = String(durationSeconds);
+    if (recordTimer) recordTimer.textContent = formatRecordTime(durationSeconds);
+
+    if (recordStartBtn) {
+      recordStartBtn.classList.remove('hidden');
+      recordStartBtn.innerHTML = '<span class="h-2.5 w-2.5 rounded-full bg-white"></span> Record again';
+    }
+    if (recordStopBtn) recordStopBtn.classList.add('hidden');
+    if (recordSaveBtn) recordSaveBtn.disabled = recordedBlob.size === 0;
+
+    if (recordedBlob.size === 0) {
+      setRecordStatus('Nothing was recorded. Try again.', 'error');
+    } else {
+      setRecordStatus('Recording ready. Listen back, add a title, then save.', 'active');
+    }
+  }
+
+  async function startRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      setRecordStatus('Recording is not supported in this browser.', 'error');
+      return;
+    }
+
+    resetRecordingUI();
+
+    try {
+      recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = chooseAudioMimeType();
+      recorder = mimeType
+        ? new MediaRecorder(recordStream, { mimeType })
+        : new MediaRecorder(recordStream);
+
+      recordChunks = [];
+      recorder.ondataavailable = function (event) {
+        if (event.data && event.data.size > 0) recordChunks.push(event.data);
+      };
+      recorder.onstop = finishRecording;
+      recorder.onerror = function () {
+        setRecordStatus('Recording failed. Please try again.', 'error');
+        stopRecordTracks();
+      };
+
+      recorder.start(250);
+      recordStartedAt = Date.now();
+      if (recordStartBtn) recordStartBtn.classList.add('hidden');
+      if (recordStopBtn) recordStopBtn.classList.remove('hidden');
+      if (recordSaveBtn) recordSaveBtn.disabled = true;
+      setRecordStatus('Recording… tap Stop when you are finished.', 'active');
+
+      if (recordTimerId) clearInterval(recordTimerId);
+      recordTimerId = window.setInterval(function () {
+        const elapsed = Math.max(0, Math.round((Date.now() - recordStartedAt) / 1000));
+        if (recordTimer) recordTimer.textContent = formatRecordTime(elapsed);
+        if (elapsed >= MAX_RECORD_SECONDS) {
+          setRecordStatus('Maximum recording length reached.', 'warning');
+          stopRecording();
+        }
+      }, 250);
+
+      startBrowserSpeech();
+    } catch (error) {
+      stopRecordTracks();
+      if (error && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
+        setRecordStatus('Microphone permission was denied. Allow it in your browser settings.', 'error');
+      } else {
+        setRecordStatus('Could not start recording. Check your microphone.', 'error');
+      }
+    }
+  }
+
+  function stopRecording() {
+    if (recorder && recorder.state !== 'inactive') {
+      try { recorder.stop(); } catch (error) {}
+    }
+  }
+
+  openRecordBtn?.addEventListener('click', openRecordModal);
+  closeRecordBtn?.addEventListener('click', closeRecordModal);
+  recordCancelBtn?.addEventListener('click', closeRecordModal);
+  recordStartBtn?.addEventListener('click', startRecording);
+  recordStopBtn?.addEventListener('click', stopRecording);
+
+  recordBackdrop?.addEventListener('click', function (event) {
+    if (event.target === recordBackdrop) closeRecordModal();
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && recordBackdrop && !recordBackdrop.classList.contains('hidden')) {
+      closeRecordModal();
+    }
+  });
+
+  voiceForm?.addEventListener('submit', async function (event) {
+    event.preventDefault();
+
+    if (!recordedBlob || recordedBlob.size === 0) {
+      setRecordStatus('Record something before saving.', 'warning');
+      return;
+    }
+
+    const mimeType = recordedBlob.type || 'audio/webm';
+    const extension = mimeType.includes('mp4')
+      ? 'm4a'
+      : mimeType.includes('ogg')
+        ? 'ogg'
+        : 'webm';
+
+    const formData = new FormData(voiceForm);
+    formData.append('audio', recordedBlob, `voice-note.${extension}`);
+
+    recordSaveBtn.disabled = true;
+    recordSaveBtn.textContent = 'Saving & transcribing…';
+    setRecordStatus('Uploading your recording. Transcription may take a moment…', 'active');
+
+    try {
+      const response = await fetch(voiceForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': getCsrf() },
+        credentials: 'same-origin',
+      });
+
+      if (response.redirected) {
+        window.location.href = response.url;
+        return;
+      }
+      if (!response.ok) throw new Error('Upload failed');
+      window.location.reload();
+    } catch (error) {
+      recordSaveBtn.disabled = false;
+      recordSaveBtn.textContent = 'Save voice note';
+      setRecordStatus('Could not save the voice note. Try again.', 'error');
+    }
+  });
+
+  // Retry transcription for notes saved without one.
+  document.querySelectorAll('.retry-transcription-btn').forEach(function (button) {
+    button.addEventListener('click', async function () {
+      const blockId = button.dataset.blockId;
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Transcribing…';
+
+      try {
+        const response = await fetch(`/notebooks/block/${blockId}/transcribe/`, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCsrf() },
+          credentials: 'same-origin',
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Transcription failed.');
+        }
+
+        const container = document.getElementById(`transcript-${blockId}`);
+        if (container) {
+          container.innerHTML = '';
+          const transcript = document.createElement('p');
+          transcript.className = 'whitespace-pre-line text-sm leading-relaxed text-gray-700';
+          transcript.textContent = data.transcript;
+          container.appendChild(transcript);
+
+          if (data.source) {
+            const source = document.createElement('p');
+            source.className = 'mt-1 text-[10px] text-gray-400';
+            source.textContent = `Transcribed with ${data.source}`;
+            container.appendChild(source);
+          }
+        }
+        button.remove();
+        showToast('Transcript added.', 'success');
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = originalLabel;
+        showToast(error.message || 'Transcription failed.', 'error');
+      }
+    });
+  });
 
 </script>
 {% endblock %}

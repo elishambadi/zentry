@@ -198,6 +198,19 @@ VAPID_PRIVATE_KEY = (
 )
 VAPID_ADMIN_EMAIL = config('VAPID_ADMIN_EMAIL', default='admin@example.com').strip()
 
+# ── Voice notes / speech-to-text ──────────────────────────────────────────────
+# Backends: auto, openai, whisper, faster-whisper, browser.
+# "auto" prefers OpenAI, then the local whisper CLI, then faster-whisper.
+OPENAI_API_KEY = config('OPENAI_API_KEY', default='').strip()
+OPENAI_TRANSCRIBE_MODEL = config('OPENAI_TRANSCRIBE_MODEL', default='whisper-1').strip()
+AUDIO_TRANSCRIPTION_BACKEND = config('AUDIO_TRANSCRIPTION_BACKEND', default='auto').strip()
+WHISPER_MODEL = config('WHISPER_MODEL', default='base').strip()
+WHISPER_LANGUAGE = config('WHISPER_LANGUAGE', default='').strip()
+WHISPER_DEVICE = config('WHISPER_DEVICE', default='cpu').strip()
+WHISPER_COMPUTE_TYPE = config('WHISPER_COMPUTE_TYPE', default='int8').strip()
+TRANSCRIPTION_TIMEOUT = config('TRANSCRIPTION_TIMEOUT', default=300, cast=int)
+MAX_AUDIO_UPLOAD_MB = config('MAX_AUDIO_UPLOAD_MB', default=25, cast=int)
+
 # ── Logging ────────────────────────────────────────────────────────────────────
 LOGGING = {
     'version': 1,

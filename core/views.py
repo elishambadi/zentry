@@ -3,6 +3,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import views as auth_views
+from django.conf import settings
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
 from django.contrib import messages
@@ -56,6 +57,13 @@ from .forms import (TaskForm, TaskEditForm, JournalForm, SubTaskForm, NoteForm,
                     LinkForm, IdeaForm, GoalForm, DailyMoodForm, UserPreferenceForm,
                     NotebookForm, NotebookPageForm, NotebookBlockForm, NotebookCommentForm)
 from .svg_decorations import SVGDecorator
+from .transcription import (
+    is_audio_file,
+    max_audio_bytes,
+    transcribe_audio,
+    transcription_available,
+    transcription_backend_label,
+)
 
 try:
     from anthropic import Anthropic
@@ -3284,6 +3292,9 @@ def notebooks_workdesk(request):
         'block_form': NotebookBlockForm(),
         'comment_form': NotebookCommentForm(),
         'block_previews': block_previews,
+        'transcription_available': transcription_available(),
+        'transcription_backend': transcription_backend_label(),
+        'max_audio_mb': settings.MAX_AUDIO_UPLOAD_MB,
     }
     return render(request, 'core/notebooks.html', context)
 
@@ -3316,6 +3327,18 @@ def notebook_block_create(request, page_id):
         messages.error(request, 'Unable to add note. Please check required fields.')
         return redirect(f"{reverse('notebooks')}?notebook={page.notebook_id}&page={page.id}")
 
+    audio_file = request.FILES.get('audio')
+    if audio_file:
+        if audio_file.size > max_audio_bytes():
+            messages.error(
+                request,
+                f'Audio is too large. The limit is {settings.MAX_AUDIO_UPLOAD_MB} MB.',
+            )
+            return redirect(f"{reverse('notebooks')}?notebook={page.notebook_id}&page={page.id}#composer")
+        if not is_audio_file(audio_file):
+            messages.error(request, 'Please upload a valid audio recording.')
+            return redirect(f"{reverse('notebooks')}?notebook={page.notebook_id}&page={page.id}#composer")
+
     block = form.save(commit=False)
 
     uploaded_image = request.FILES.get('image')
@@ -3327,6 +3350,26 @@ def notebook_block_create(request, page_id):
             messages.error(request, 'Image upload failed. Please use a valid image file.')
             return redirect(f"{reverse('notebooks')}?notebook={page.notebook_id}&page={page.id}")
 
+    transcription = None
+    if audio_file:
+        transcription = transcribe_audio(
+            audio_file,
+            filename=audio_file.name,
+            browser_transcript=request.POST.get('browser_transcript', ''),
+        )
+        try:
+            audio_file.seek(0)
+        except (AttributeError, OSError):
+            pass
+
+        block.audio_transcript = transcription.get('transcript', '')
+        block.transcription_source = transcription.get('source', '')
+
+        try:
+            block.audio_duration = float(request.POST.get('audio_duration') or 0) or None
+        except (TypeError, ValueError):
+            block.audio_duration = None
+
     block.page = page
     latest_block = NotebookBlock.objects.filter(page=page).order_by('-order').first()
     block.order = (latest_block.order + 1) if latest_block else 0
@@ -3334,8 +3377,71 @@ def notebook_block_create(request, page_id):
 
     page.notebook.updated_at = timezone.now()
     page.notebook.save(update_fields=['updated_at'])
-    messages.success(request, 'Thought captured.')
+
+    if audio_file:
+        if transcription and transcription.get('transcript'):
+            source = transcription.get('source')
+            suffix = f' ({source})' if source else ''
+            messages.success(request, f'Voice note saved with transcript{suffix}.')
+        else:
+            messages.warning(
+                request,
+                'Voice note saved. No transcript was generated — you can retry from the note '
+                'after configuring a transcription engine.',
+            )
+    else:
+        messages.success(request, 'Thought captured.')
+
     return redirect(f"{reverse('notebooks')}?notebook={page.notebook_id}&page={page.id}#composer")
+
+
+@login_required
+@require_POST
+def notebook_block_transcribe(request, block_id):
+    """Retry transcription for a stored voice note."""
+    block = get_object_or_404(
+        NotebookBlock,
+        id=block_id,
+        page__notebook__user=request.user,
+    )
+    if not block.audio:
+        return JsonResponse({'success': False, 'error': 'This note has no audio.'}, status=400)
+
+    if not transcription_available():
+        return JsonResponse({
+            'success': False,
+            'error': (
+                'No transcription engine is configured. Add OPENAI_API_KEY or install '
+                'openai-whisper + ffmpeg (or faster-whisper).'
+            ),
+        }, status=503)
+
+    try:
+        with block.audio.open('rb') as audio_handle:
+            result = transcribe_audio(
+                audio_handle,
+                filename=block.audio.name,
+                browser_transcript=request.POST.get('browser_transcript', ''),
+            )
+    except Exception:
+        logger.exception('[notebooks] could not open audio for block %s', block.id)
+        return JsonResponse({'success': False, 'error': 'Could not read the audio file.'}, status=500)
+
+    if not result.get('transcript'):
+        return JsonResponse({
+            'success': False,
+            'error': result.get('error') or 'No speech was detected.',
+        }, status=422)
+
+    block.audio_transcript = result['transcript']
+    block.transcription_source = result.get('source', '')
+    block.save(update_fields=['audio_transcript', 'transcription_source', 'updated_at'])
+
+    return JsonResponse({
+        'success': True,
+        'transcript': block.audio_transcript,
+        'source': block.transcription_source,
+    })
 
 
 @login_required

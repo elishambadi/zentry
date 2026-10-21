@@ -62,9 +62,9 @@
       <section id="block-{{ block.id }}" class="pb-8 border-b border-gray-100 last:border-0">
         <!-- Block Header -->
         <div class="mb-4">
-          {% if block.emoji or block.title %}
+          {% if block.emoji or block.title or block.audio %}
           <h2 class="text-2xl font-semibold text-gray-900">
-            {% if block.emoji %}{{ block.emoji }} {% endif %}{{ block.title|default:'Untitled thought' }}
+            {% if block.emoji %}{{ block.emoji }} {% endif %}{% if block.title %}{{ block.title }}{% elif block.audio %}Voice note{% else %}Untitled thought{% endif %}
           </h2>
           {% endif %}
           <p class="text-xs text-gray-400 mt-2">{{ block.created_at|date:'j M Y · H:i' }}</p>
@@ -74,6 +74,18 @@
         {% if block.body %}
         <div class="notebook-body text-lg text-gray-800 leading-relaxed my-6">
           {{ block.body|safe }}
+        </div>
+        {% endif %}
+
+        {% if block.audio %}
+        <div class="my-6 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
+          <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700 mb-2">
+            🎙 Voice note{% if block.audio_duration %} · {{ block.audio_duration|floatformat:0 }} sec{% endif %}
+          </p>
+          <audio controls preload="metadata" class="w-full" src="{{ block.audio.url }}"></audio>
+          {% if block.audio_transcript %}
+          <p class="mt-3 whitespace-pre-line text-base leading-relaxed text-gray-700">{{ block.audio_transcript|linebreaksbr }}</p>
+          {% endif %}
         </div>
         {% endif %}
 

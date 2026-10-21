@@ -36,6 +36,23 @@ Zentry is a Django productivity app for daily planning, ideas, goals, and review
 	- daily task digest sent by `send_daily_pushes`
 - Pomodoro timer sends a system notification when focus/break sessions end.
 
+### 4) Voice notes (speech-to-text)
+- Notebook composer has a **Record** button (microphone). Recordings are uploaded,
+  stored as `NotebookBlock.audio`, and transcribed into `audio_transcript`.
+- Transcriptions can be retried per note from the notebook page.
+- Backends (chosen automatically unless `AUDIO_TRANSCRIPTION_BACKEND` is set):
+  1. **OpenAI** – set `OPENAI_API_KEY` (model via `OPENAI_TRANSCRIBE_MODEL`).
+  2. **Whisper CLI** – `pip install -U openai-whisper` and install ffmpeg:
+     - macOS: `brew install ffmpeg`
+     - Debian/Ubuntu: `sudo apt-get update && sudo apt-get install -y ffmpeg`
+     - Then set `WHISPER_MODEL` (default `base`).
+  3. **faster-whisper** – `pip install -r requirements-voice.txt` (no ffmpeg needed).
+  4. **Browser fallback** – when no server engine is configured, Chrome/Edge
+     SpeechRecognition produces an on-device transcript alongside the audio.
+- `MAX_AUDIO_UPLOAD_MB` limits uploads (default 25 MB).
+- In Docker, either set `OPENAI_API_KEY`, or add `ffmpeg` (and a Whisper package)
+  to the image.
+
 ## Environment notes
 - Set `SECRET_KEY` in environment (required by settings).
 - Optional: set `ANTHROPIC_API_KEY` to enable live model responses in ZenAI.

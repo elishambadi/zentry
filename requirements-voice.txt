@@ -1,0 +1,13 @@
+# Optional local speech-to-text backend for notebook voice notes.
+#
+#   pip install -r requirements-voice.txt
+#
+# The app auto-detects this package and no ffmpeg install is required.
+# Alternatively, install the Whisper CLI instead:
+#
+#   pip install -U openai-whisper
+#   brew install ffmpeg            # macOS
+#   sudo apt-get install -y ffmpeg # Debian/Ubuntu
+#
+# Cloud transcription works without any of this: just set OPENAI_API_KEY.
+faster-whisper>=1.0.0
